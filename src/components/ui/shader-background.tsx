@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 const ShaderBackground = () => {
   const canvasRef = useRef(null);
@@ -114,8 +114,10 @@ const ShaderBackground = () => {
 `;
 
   // Helper function to compile shader
-  const loadShader = (gl, type, source) => {
+  const loadShader = (gl: WebGLRenderingContext, type: number, source: string) => {
     const shader = gl.createShader(type);
+    if (!shader) return null;
+    
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
 
@@ -129,11 +131,15 @@ const ShaderBackground = () => {
   };
 
   // Initialize shader program
-  const initShaderProgram = (gl, vsSource, fsSource) => {
+  const initShaderProgram = (gl: WebGLRenderingContext, vsSource: string, fsSource: string) => {
     const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
     const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    
+    if (!vertexShader || !fragmentShader) return null;
 
     const shaderProgram = gl.createProgram();
+    if (!shaderProgram) return null;
+    
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
@@ -147,7 +153,7 @@ const ShaderBackground = () => {
   };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef.current as HTMLCanvasElement | null;
     if (!canvas) return;
 
     const gl = canvas.getContext('webgl');
@@ -167,6 +173,8 @@ const ShaderBackground = () => {
     ];
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
+    if (!shaderProgram) return;
+    
     const programInfo = {
       program: shaderProgram,
       attribLocations: {

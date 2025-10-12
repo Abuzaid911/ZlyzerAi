@@ -16,12 +16,7 @@ interface AnalysisResultCardProps {
   loading?: boolean;
 }
 
-function isProfileAnalysis(
-  analysis: AnalysisType,
-  variant: 'video' | 'profile'
-): analysis is ProfileAnalysisRequest {
-  return variant === 'profile';
-}
+// Removed unused function - using variant prop directly
 
 export default function AnalysisResultCard({
   analysis,

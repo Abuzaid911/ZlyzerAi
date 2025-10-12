@@ -85,7 +85,20 @@ export const PulseBeams = ({
   );
 };
 
-const SVGs = ({ beams, width, height, baseColor, accentColor, gradientColors }) => {
+interface SVGsProps {
+  beams: any[];
+  width: number;
+  height: number;
+  baseColor: string;
+  accentColor: string;
+  gradientColors?: {
+    start: string;
+    middle: string;
+    end: string;
+  };
+}
+
+const SVGs = ({ beams, width, height, baseColor, accentColor, gradientColors }: SVGsProps) => {
   return (
     <svg
       width={width}
@@ -108,7 +121,7 @@ const SVGs = ({ beams, width, height, baseColor, accentColor, gradientColors }) 
             strokeWidth="2"
             strokeLinecap="round"
           />
-          {beam.connectionPoints?.map((point, pointIndex) => (
+          {beam.connectionPoints?.map((point: any, pointIndex: number) => (
             <circle
               key={`${index}-${pointIndex}`}
               cx={point.cx}
@@ -131,7 +144,7 @@ const SVGs = ({ beams, width, height, baseColor, accentColor, gradientColors }) 
             animate={beam.gradientConfig.animate}
             transition={beam.gradientConfig.transition}
           >
-            <GradientColors colors={gradientColors} />
+            <GradientColors colors={gradientColors || undefined} />
           </motion.linearGradient>
         ))}
       </defs>

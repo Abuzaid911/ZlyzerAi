@@ -1,5 +1,5 @@
 // Toast notification system
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

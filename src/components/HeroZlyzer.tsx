@@ -1,5 +1,5 @@
 // components/HeroZlyzer.tsx
-import React, { useState } from "react";
+import { useState } from "react";
 
 export default function HeroZlyzer() {
   const [mode, setMode] = useState<"analyze" | "demo">("analyze");

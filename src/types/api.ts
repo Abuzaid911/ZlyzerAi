@@ -34,7 +34,7 @@ export interface ProfileVideoItem {
 }
 
 export interface ProfileResult {
-  analysisResult: string | null;
+  analysisResult?: string;
   processingTime: number;
   createdAt: Date | string | number;
   videos: ProfileVideoItem[];
@@ -49,7 +49,7 @@ export interface AnalysisRequest {
   customPrompt: string | null;
   videoResultId: string | null;
   profileResultId: string | null; // <-- present in API responses:contentReference[oaicite:2]{index=2}
-  errorMessage: string | null;
+  errorMessage?: string;
   processingTimeMs: number;
   createdAt: Date;
   updatedAt: Date;
@@ -57,14 +57,14 @@ export interface AnalysisRequest {
   completedAt: Date | null;
 
   /** When a single video analysis is complete */
-  result?: AnalysisResult | null;
+  result?: AnalysisResult;
 
   /** When a profile analysis is complete */
-  profileResult?: ProfileResult | null;
+  profileResult?: ProfileResult;
 }
 
 export interface ProfileAnalysisRequest extends AnalysisRequest {
-  profileHandle?: string | null;
+  profileHandle?: string;
 }
 
 /** Dashboard aggregate */

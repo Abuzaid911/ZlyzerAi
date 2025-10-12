@@ -1,5 +1,4 @@
 // Reusable progress bar component
-import React from 'react';
 
 interface ProgressBarProps {
   progress: number;

@@ -1,10 +1,7 @@
 // components/AnalysisFlow.tsx
-import React from "react";
 import clsx from "clsx";
 
 const Accent = "#2ce695";     // brand green
-const Dark  = "#132e53";      // primary bg
-const Dark2 = "#191e29";      // alt bg
 
 export default function AnalysisFlow({
   className,

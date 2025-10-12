@@ -1,6 +1,6 @@
 // Landing page hero section with interactive demo
 import { motion } from 'framer-motion';
-import { ArrowRight, Play, Sparkles, Zap, TrendingUp } from 'lucide-react';
+import { ArrowRight, Play, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function LandingHero() {

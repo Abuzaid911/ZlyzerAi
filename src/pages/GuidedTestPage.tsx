@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 // import { motion } from "framer-motion"; // optional subtle animations
 
 /* Brand */
-const NAVY = "#132e53";
+// Removed unused constant
 const MINT = "#2ce695";
 
 /** Test page for user guidance through Zlyzer */

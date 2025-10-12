@@ -120,7 +120,7 @@ async function apiFetch<T>(
   const sessionId = ensureSessionId();
 
   const { timeoutMs, signal, headers: hdrs, ...rest } = options;
-  const { signal: effectiveSignal } = withTimeout(signal, timeoutMs);
+  const { signal: effectiveSignal } = withTimeout(signal || undefined, timeoutMs);
 
   // Only set JSON content-type when there is a body (avoids odd server behavior on GET)
   const headers: HeadersInit = { ...(hdrs || {}) };
@@ -145,7 +145,6 @@ async function apiFetch<T>(
 
   // Handle 304 (if you decide to send If-None-Match elsewhere)
   if (res.status === 304) {
-    // @ts-expect-error – callers using conditional requests can decide how to interpret this
     return { _notModified: true } as T;
   }
 

@@ -154,7 +154,7 @@ const SVGs: React.FC<SVGsProps> = ({
             gradientUnits="userSpaceOnUse"
             initial={beam.gradientConfig.initial}
             animate={beam.gradientConfig.animate}
-            transition={beam.gradientConfig.transition}
+            transition={beam.gradientConfig.transition as any}
           >
             <GradientStops colors={gradientColors} />
           </motion.linearGradient>
