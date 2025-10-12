@@ -6,37 +6,46 @@ import { Plus, Minus } from 'lucide-react';
 const faqs = [
   {
     question: 'How accurate is the AI?',
-    answer: 'Our analysis model has a 92% accuracy rate, validated against actual video performance across 2M+ videos. We continuously train our AI on new data to improve accuracy.',
+    answer:
+      "Very accurate — our models consistently match real-world results with a very high accuracy. And because we’re always training on fresh TikTok data, the insights only get sharper over time.",
   },
   {
     question: 'What TikTok data do you analyze?',
-    answer: 'We analyze video content (visual, audio, captions), engagement metrics, creator profiles, comments sentiment, and posting patterns. Our AI processes multiple data points to provide comprehensive insights.',
+    answer:
+      "Everything that matters. We break down the video itself (visuals, sounds, captions), track engagement like likes and shares, study the creator’s profile, scan comments for sentiment, and even look at posting patterns — all to give you a complete picture of why content performs.",
   },
   {
     question: 'Can I analyze private or competitor videos?',
-    answer: 'Any public TikTok video or profile is analyzable. Private accounts require their permission. We respect TikTok\'s terms of service and only analyze publicly available content.',
+    answer:
+      "Yes — as long as the video or profile is public. Private content stays private unless you have access. And of course, we fully respect TikTok’s terms of service.",
   },
   {
-    question: 'Is there a contract?',
-    answer: 'No. All plans are month-to-month. Cancel anytime with no questions asked. We believe in earning your business every month, not locking you in.',
+    question: 'Do you offer partnerships?',
+    answer:
+      "Yes — we love partnering with agencies, platforms, and growth teams. Through our partnership program, you can ship fully customized video analysis reports directly to your clients, created by our expert team under your brand. It’s a powerful way to expand your service offering without building analytics tools yourself.",
   },
   {
     question: 'Do you offer white-label for agencies?',
-    answer: 'Yes, on the Agency plan and above. Custom branding, domain, and client portals are available. Perfect for agencies who want to offer TikTok analysis as their own service.',
+    answer:
+      "Absolutely. On our Agency plan and above, you can use your own branding, domain, and client portal. It’s perfect if you want to offer TikTok analytics as part of your own service.",
   },
   {
     question: 'What counts as one analysis?',
-    answer: 'One analysis = one video OR one profile deep-dive. Partial analyses (saving drafts) don\'t count against your limit. Re-analyzing the same video also doesn\'t count.',
+    answer:
+      "One analysis equals one full breakdown of a single video. Drafts don’t count toward your limit, and re-analyzing the same video is free.",
   },
   {
     question: 'Can I share analyses with my team?',
-    answer: 'Professional plan includes 2 team members. Agency plan includes 5 team members, with unlimited seats available for Enterprise. All team members get full access to analyses and exports.',
+    answer:
+      "Yes! The Professional plan includes 2 team seats, and the Agency plan includes 5. Need more? Enterprise plans offer unlimited seats — everyone gets full access to insights and exports.",
   },
   {
     question: 'How fast is the analysis?',
-    answer: 'Most analyses complete in 15-30 seconds. Complex profile analyses with hundreds of videos may take up to 2 minutes. We process requests in real-time, not batch jobs.',
+    answer:
+      "Super fast. Most single-video analyses are ready in 15–30 seconds. Even deep profile scans with hundreds of videos finish in a few minutes — all processed in real time.",
   },
 ];
+
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
