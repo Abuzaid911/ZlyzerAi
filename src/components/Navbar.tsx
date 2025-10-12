@@ -158,14 +158,20 @@ export default function Navbar() {
   // ✱ If page loads with a hash, auto-offset scroll once content paints
   useEffect(() => {
     const hash = getHash(window.location.href);
-    if (hash) {
-      const el = document.querySelector(hash) as HTMLElement | null;
-      if (el) {
-        requestAnimationFrame(() => {
-          const headerOffset = 80;
-          const { top } = el.getBoundingClientRect();
-          window.scrollTo({ top: top + window.scrollY - headerOffset, behavior: "auto" });
-        });
+    // Ignore OAuth callback hashes (access_token, refresh_token, etc.)
+    if (hash && !hash.includes('access_token') && !hash.includes('=')) {
+      try {
+        const el = document.querySelector(hash) as HTMLElement | null;
+        if (el) {
+          requestAnimationFrame(() => {
+            const headerOffset = 80;
+            const { top } = el.getBoundingClientRect();
+            window.scrollTo({ top: top + window.scrollY - headerOffset, behavior: "auto" });
+          });
+        }
+      } catch (error) {
+        // Invalid selector, ignore
+        console.debug('Invalid hash selector:', hash);
       }
     }
   }, []);
