@@ -159,7 +159,7 @@ export default function Navbar() {
   useEffect(() => {
     const hash = getHash(window.location.href);
     // Ignore OAuth callback hashes (access_token, refresh_token, etc.)
-    if (hash && !hash.includes('access_token') && !hash.includes('=')) {
+    if (hash && !hash.includes("access_token") && !hash.includes("=")) {
       try {
         const el = document.querySelector(hash) as HTMLElement | null;
         if (el) {
@@ -171,7 +171,7 @@ export default function Navbar() {
         }
       } catch (error) {
         // Invalid selector, ignore
-        console.debug('Invalid hash selector:', hash);
+        console.debug("Invalid hash selector:", hash);
       }
     }
   }, []);
@@ -197,8 +197,6 @@ export default function Navbar() {
         >
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 shrink-0 group relative" aria-label="Zlyzer home">
-            {/* ✱ Prefer importing asset */}
-            {/* import logoUrl from '/new-project.svg'; <img src={logoUrl} .../> */}
             <img
               src="/logo.svg"
               alt="Zlyzer"
@@ -244,10 +242,149 @@ export default function Navbar() {
             })}
           </ul>
 
-          {/* CTA + User Profile + Hamburger */}
+          {/* CTA + User Profile + Mobile controls */}
           <div className="flex items-center gap-3">
+            {/* Desktop Sign In */}
+            {!user && (
+              <button
+                type="button"
+                onClick={handleSignIn}
+                className="
+                  hidden sm:inline-flex items-center justify-center
+                  rounded-full border border-white/20
+                  px-4 py-2 text-sm font-semibold
+                  text-white/90 hover:text-white hover:border-white/40
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
+                  transition-colors
+                "
+              >
+                Sign In
+              </button>
+            )}
+
+            {/* Desktop CTA */}
+            {!user && (
+              <Link
+                to="/video-analysis"
+                className="hidden md:inline-flex items-center justify-center rounded-full bg-[#2ce695] px-4 py-2 text-sm font-semibold text-[#0b1b14] shadow-[0_8px_24px_rgba(44,230,149,0.35)] transition hover:brightness-110"
+              >
+                Start analyzing
+              </Link>
+            )}
+
+            {/* ✅ Mobile CTA (visible on phones) */}
+            {!user && (
+              <Link
+                to="/video-analysis"
+                className="md:hidden inline-flex items-center justify-center rounded-full bg-[#2ce695] px-3.5 py-2 text-xs font-semibold text-[#0b1b14] shadow-[0_6px_18px_rgba(44,230,149,0.35)] transition hover:brightness-110"
+              >
+                Start analyzing
+              </Link>
+            )}
+
+            {/* ✅ Mobile: avatar replaces hamburger when signed in */}
             {user ? (
-              /* User Profile Dropdown */
+              <div className="sm:hidden relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  ref={dropdownBtnRef}
+                  onClick={() => {
+                    setShowDropdown((v) => !v);
+                    setDropdownIndex(0);
+                  }}
+                  aria-haspopup="menu"
+                  aria-expanded={showDropdown}
+                  aria-controls={`${dropdownMenuId}-mobile`}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 hover:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60"
+                >
+                  <img
+                    src={
+                      !avatarError
+                        ? user.user_metadata?.avatar_url ||
+                          user.user_metadata?.picture ||
+                          "/default-avatar.png"
+                        : "/default-avatar.png"
+                    }
+                    onError={() => setAvatarError(true)}
+                    alt={user.user_metadata?.full_name || user.email || "User"}
+                    className="h-8 w-8 rounded-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </button>
+
+                {showDropdown && (
+                  <div
+                    id={`${dropdownMenuId}-mobile`}
+                    role="menu"
+                    aria-label="User menu"
+                    className="absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#132e53]/95 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,.35)] z-50 overflow-hidden"
+                  >
+                    <div className="px-4 py-3 border-b border-white/10">
+                      <p className="text-sm font-medium text-white">
+                        {user.user_metadata?.full_name || "User"}
+                      </p>
+                      <p className="text-xs text-white/60 truncate">{user.email}</p>
+                    </div>
+                    <div className="py-2">
+                      <Link
+                        to="/dashboard"
+                        role="menuitem"
+                        ref={(el) => { dropdownItemsRef.current[0] = el; }}
+                        className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
+                        onClick={() => setShowDropdown(false)}
+                      >
+                        Dashboard
+                      </Link>
+                      <Link
+                        to="/settings"
+                        role="menuitem"
+                        ref={(el) => { dropdownItemsRef.current[1] = el; }}
+                        className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
+                        onClick={() => setShowDropdown(false)}
+                      >
+                        Settings
+                      </Link>
+                    </div>
+                    <div className="border-t border-white/10">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        ref={(el) => { dropdownItemsRef.current[2] = el; }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSignOut();
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition focus:outline-none"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Mobile: hamburger for logged-out users */
+              <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="
+                  md:hidden inline-flex h-9 w-9 items-center justify-center
+                  rounded-lg border border-white/15 text-white/90
+                  hover:bg-white/5 transition
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
+                "
+                aria-expanded={open}
+                aria-controls="mobile-nav"
+                aria-label="Toggle menu"
+              >
+                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth={1.8}>
+                  {open ? <path d="M6 6l12 12M18 6L6 18" /> : (<><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>)}
+                </svg>
+              </button>
+            )}
+
+            {/* Desktop user dropdown (unchanged) */}
+            {user && (
               <div className="hidden sm:block relative" ref={dropdownRef}>
                 <button
                   type="button"
@@ -294,7 +431,7 @@ export default function Navbar() {
                   </svg>
                 </button>
 
-                {/* Dropdown Menu */}
+                {/* Dropdown Menu (desktop) */}
                 {showDropdown && (
                   <div
                     id={dropdownMenuId}
@@ -321,6 +458,15 @@ export default function Navbar() {
                       >
                         Dashboard
                       </Link>
+                      <Link
+                        to="/settings"
+                        role="menuitem"
+                        ref={(el) => { dropdownItemsRef.current[1] = el; }}
+                        className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
+                        onClick={() => setShowDropdown(false)}
+                      >
+                        Settings
+                      </Link>
                     </div>
 
                     {/* Sign Out */}
@@ -341,50 +487,7 @@ export default function Navbar() {
                   </div>
                 )}
               </div>
-            ) : (
-              /* Sign In Button */
-              <button
-                type="button"
-                onClick={handleSignIn}
-                className="
-                  hidden sm:inline-flex items-center justify-center
-                  rounded-full border border-white/20
-                  px-4 py-2 text-sm font-semibold
-                  text-white/90 hover:text-white hover:border-white/40
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
-                  transition-colors
-                "
-              >
-                Sign In
-              </button>
             )}
-
-            {!user && (
-              <Link
-                to="/video-analysis"
-                className="hidden md:inline-flex items-center justify-center rounded-full bg-[#2ce695] px-4 py-2 text-sm font-semibold text-[#0b1b14] shadow-[0_8px_24px_rgba(44,230,149,0.35)] transition hover:brightness-110"
-              >
-                Start analyzing
-              </Link>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              className="
-                md:hidden inline-flex h-9 w-9 items-center justify-center
-                rounded-lg border border-white/15 text-white/90
-                hover:bg-white/5 transition
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
-              "
-              aria-expanded={open}
-              aria-controls="mobile-nav"
-              aria-label="Toggle menu"
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth={1.8}>
-                {open ? <path d="M6 6l12 12M18 6L6 18" /> : (<><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>)}
-              </svg>
-            </button>
           </div>
         </nav>
       </div>
@@ -394,7 +497,7 @@ export default function Navbar() {
         id="mobile-nav"
         className={clsx(
           "md:hidden overflow-hidden transition-[max-height,opacity] duration-300",
-          open ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none" // ✱
+          open ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
         )}
       >
         <div
@@ -405,7 +508,7 @@ export default function Navbar() {
           "
         >
           <ul className="flex flex-col p-3">
-            {/* User Info for Mobile */}
+            {/* User Info for Mobile (drawer) */}
             {user && (
               <li className="mb-3 pb-3 border-b border-white/10">
                 <div className="flex items-center gap-3 px-3 py-2">
@@ -440,7 +543,7 @@ export default function Navbar() {
                     className="
                       block rounded-lg px-3 py-2
                       text-sm font-medium text-white/80
-                      hover:bg:white/5 hover:text-white
+                      hover:bg-white/5 hover:text-white
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
                       transition
                     "
