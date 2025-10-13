@@ -167,7 +167,7 @@ async function apiFetch<T>(
         // Force sign out to clean up stale state
         await supabase.auth.signOut();
         
-        // Clear any local storage that might be stale
+        // Clear any localStorage that might be stale
         Object.keys(sessionStorage).forEach(key => {
           if (key.startsWith('signed_up_') || 
               key.startsWith('auth_') || 
