@@ -1,4 +1,5 @@
 // pages/VideoAnalysis.tsx - Refactored version
+import { useEffect, useState } from 'react';
 import { useCreateAnalysis } from '../hooks/useCreateAnalysis';
 import { useCreateProfileAnalysis } from '../hooks/useCreateProfileAnalysis';
 import { useAnalysisForm } from '../hooks/useAnalysisForm';
@@ -7,9 +8,30 @@ import AnalysisForm from '../components/AnalysisForm';
 import AnalysisLoader from '../components/AnalysisLoader';
 import AnalysisHistory from '../components/AnalysisHistory';
 import { useToast } from '../components/Toast';
+import { supabase } from '../lib/supabaseClient';
 
 export default function VideoAnalysis() {
   const toast = useToast();
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
+  // Check authentication state
+  useEffect(() => {
+    // Initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsSignedIn(!!session?.user);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsSignedIn(!!session?.user);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
   
   // Video analysis hook
   const {
@@ -91,6 +113,7 @@ export default function VideoAnalysis() {
               promptPlaceholder="Focus on retention hooks and sentiment"
               buttonText="Analyze"
               inputType="url"
+              isSignedIn={isSignedIn}
             />
           </div>
 
@@ -139,6 +162,7 @@ export default function VideoAnalysis() {
               inputPlaceholder="Enter TikTok handle"
               promptPlaceholder="Summarize content pillars and posting cadence"
               buttonText="Analyze profile"
+              isSignedIn={isSignedIn}
             />
           </div>
 

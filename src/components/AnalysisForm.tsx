@@ -14,6 +14,7 @@ interface AnalysisFormProps {
   promptPlaceholder: string;
   buttonText: string;
   inputType?: string; // optional override
+  isSignedIn?: boolean; // NEW: track authentication state
 }
 
 export default function AnalysisForm({
@@ -29,6 +30,7 @@ export default function AnalysisForm({
   promptPlaceholder,
   buttonText,
   inputType,
+  isSignedIn = true, // NEW: default to true for backwards compatibility
 }: AnalysisFormProps) {
   const buttonColor = variant === 'video' ? 'bg-[#2ce695]' : 'bg-[#18CCFC]';
   const focusColor =
@@ -102,13 +104,16 @@ export default function AnalysisForm({
               ? 'Redirecting to sign in'
               : loading
               ? `Analyzing ${variant}`
+              : !isSignedIn
+              ? 'Sign in required to analyze'
               : `Submit ${variant} for analysis`
           }
           aria-busy={isBusy}
           className={clsx(
-            'inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold text-[#0b1b14] transition',
+            'inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold text-[#0b1b14] transition relative',
             buttonColor,
-            isBusy && 'opacity-70 cursor-not-allowed'
+            isBusy && 'opacity-70 cursor-not-allowed',
+            !isSignedIn && 'blur-[2px] opacity-50' // NEW: blur when not signed in
           )}
         >
           {/* NEW: tiny spinner */}
@@ -125,6 +130,24 @@ export default function AnalysisForm({
           {redirecting ? 'Redirecting to sign in…' : loading ? 'Analyzing…' : buttonText}
         </button>
       </div>
+
+      {/* NEW: Sign in notice when not authenticated */}
+      {!isSignedIn && (
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-[#2ce695]/20 bg-[#2ce695]/10 px-4 py-2 text-sm">
+          <svg 
+            className="h-4 w-4 text-[#2ce695]" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-white/90">
+            <span className="font-semibold text-[#2ce695]">Sign in required:</span> Click the button to authenticate with Google
+          </span>
+        </div>
+      )}
 
       {/* Loading status announcement for screen readers */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
