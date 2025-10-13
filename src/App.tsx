@@ -32,6 +32,8 @@ export default function App() {
           <Routes>
             <Route path="/landing" element={<Landing />} />
             <Route path="/" element={<Home />} />
+            {/* Support both /callback and /auth/callback for OAuth redirects */}
+            <Route path="/callback" element={<AuthCallback />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/video-analysis" element={<VideoAnalysis />} />
             <Route path="/dashboard" element={<Dashboard />} />
