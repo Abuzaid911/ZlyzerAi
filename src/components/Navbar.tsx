@@ -1,5 +1,5 @@
 // components/Navbar.tsx
-import React, { useEffect, useMemo, useRef, useState, useId } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { Link, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { supabase } from "../lib/supabaseClient";
@@ -17,21 +17,130 @@ const NAV_LINKS = [
 // ✱ helper: get hash ('' if none)
 const getHash = (path: string) => (path.includes("#") ? path.slice(path.indexOf("#")) : "");
 
-export default function Navbar() {
+type DropdownItem = HTMLAnchorElement | HTMLButtonElement | null;
+
+const useDropdown = () => {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const itemsRef = useRef<DropdownItem[]>([]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  const toggle = useCallback(() => {
+    setOpen((prev) => !prev);
+  }, []);
+
+  const registerItem = useCallback(
+    (index: number) => (el: DropdownItem) => {
+      itemsRef.current[index] = el;
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!open) {
+      itemsRef.current = [];
+      setActiveIndex(0);
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const container = containerRef.current;
+      const trigger = triggerRef.current;
+      if (!container || !trigger) return;
+      if (!container.contains(target) && !trigger.contains(target)) {
+        close();
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+        triggerRef.current?.focus();
+        return;
+      }
+
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const totalItems = itemsRef.current.length;
+      if (!totalItems) return;
+
+      if (event.key === "Home") {
+        setActiveIndex(0);
+      } else if (event.key === "End") {
+        setActiveIndex(totalItems - 1);
+      } else if (event.key === "ArrowDown") {
+        setActiveIndex((idx) => Math.min(idx + 1, totalItems - 1));
+      } else if (event.key === "ArrowUp") {
+        setActiveIndex((idx) => Math.max(idx - 1, 0));
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, close]);
+
+  useEffect(() => {
+    if (!open) return;
+    const item = itemsRef.current[activeIndex];
+    item?.focus();
+  }, [activeIndex, open]);
+
+  return {
+    open,
+    toggle,
+    close,
+    setOpen,
+    setActiveIndex,
+    containerRef,
+    triggerRef,
+    registerItem,
+  };
+};
+
+export default function Navbar() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownIndex, setDropdownIndex] = useState(0); // ✱ keyboard nav
   const reduceMotion = useMemo(
     () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     []
   );
 
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const dropdownBtnRef = useRef<HTMLButtonElement | null>(null);
-  const dropdownItemsRef = useRef<Array<HTMLAnchorElement | HTMLButtonElement | null>>([]); // ✱
   const location = useLocation();
-  const dropdownMenuId = useId(); // ✱ a11y
+  const desktopDropdown = useDropdown();
+  const mobileDropdown = useDropdown();
+  const desktopDropdownMenuId = useId();
+  const mobileDropdownMenuId = useId();
+  const {
+    open: desktopDropdownOpen,
+    toggle: toggleDesktopDropdown,
+    close: closeDesktopDropdown,
+    containerRef: desktopDropdownContainerRef,
+    triggerRef: desktopDropdownTriggerRef,
+    registerItem: registerDesktopDropdownItem,
+  } = desktopDropdown;
+  const {
+    open: mobileDropdownOpen,
+    toggle: toggleMobileDropdown,
+    close: closeMobileDropdown,
+    containerRef: mobileDropdownContainerRef,
+    triggerRef: mobileDropdownTriggerRef,
+    registerItem: registerMobileDropdownItem,
+  } = mobileDropdown;
   const toast = useToast();
   const bootstrapErrorRef = useRef<string | null>(null);
 
@@ -65,9 +174,16 @@ export default function Navbar() {
 
   // Close mobile drawer & dropdown on route change
   useEffect(() => {
-    setOpen(false);
-    setShowDropdown(false);
-  }, [location.pathname, location.search, location.hash]);
+    setMobileNavOpen(false);
+    closeDesktopDropdown();
+    closeMobileDropdown();
+  }, [
+    location.pathname,
+    location.search,
+    location.hash,
+    closeDesktopDropdown,
+    closeMobileDropdown,
+  ]);
 
   // Scroll shadow
   useEffect(() => {
@@ -76,47 +192,6 @@ export default function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  // ✱ Click outside & Esc for dropdown (pointerdown supports touch)
-  useEffect(() => {
-    if (!showDropdown) return;
-    const onClick = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(t) &&
-        dropdownBtnRef.current &&
-        !dropdownBtnRef.current.contains(t)
-      ) {
-        setShowDropdown(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowDropdown(false);
-      // ✱ cycle with Arrow keys
-      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
-        e.preventDefault();
-        if (!dropdownItemsRef.current.length) return;
-        if (e.key === "Home") setDropdownIndex(0);
-        else if (e.key === "End") setDropdownIndex(dropdownItemsRef.current.length - 1);
-        else if (e.key === "ArrowDown") setDropdownIndex((i) => Math.min(i + 1, dropdownItemsRef.current.length - 1));
-        else if (e.key === "ArrowUp") setDropdownIndex((i) => Math.max(i - 1, 0));
-      }
-    };
-    document.addEventListener("pointerdown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [showDropdown]);
-
-  // ✱ Move focus as dropdownIndex changes
-  useEffect(() => {
-    if (!showDropdown) return;
-    const el = dropdownItemsRef.current[dropdownIndex];
-    el?.focus();
-  }, [dropdownIndex, showDropdown]);
 
   // Sign in with Google using PKCE flow
   const handleSignIn = async () => {
@@ -128,7 +203,7 @@ export default function Navbar() {
         provider: "google",
         options: { 
           // Always use explicit callback URL, never window.location.href
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/video-analysis`,
           // Request PKCE flow for better security
           queryParams: {
             access_type: 'offline',
@@ -145,8 +220,10 @@ export default function Navbar() {
   // Sign out with reliable cleanup
   const handleSignOut = async () => {
     try {
-      setShowDropdown(false);
-      
+      closeDesktopDropdown();
+      closeMobileDropdown();
+      setMobileNavOpen(false);
+      localStorage.clear();
       console.log('🔓 Signing out...');
       
       // Clear all session-related storage BEFORE sign out
@@ -159,21 +236,19 @@ export default function Navbar() {
         }
       });
       clearPostAuthRedirect();
-      
       // Clear any analysis history from localStorage
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith("zlyzer-")) {
           localStorage.removeItem(key);
         }
       });
-      
+      window.location.reload(); // Ensure all state is cleared
       // Sign out from Supabase (this triggers onAuthStateChange)
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error("Supabase sign out error:", error);
         throw error;
       }
-      
       // Force immediate session recheck to ensure UI updates
       await supabase.auth.getSession();
       
@@ -184,7 +259,6 @@ export default function Navbar() {
       if (window.location.pathname !== '/') {
         window.location.href = '/';
       }
-      
     } catch (error) {
       console.error("Error signing out:", error);
       
@@ -206,7 +280,7 @@ export default function Navbar() {
       if (reduceMotion) window.scrollTo(0, y);
       else window.scrollTo({ top: y, behavior: "smooth" });
     }
-    setOpen(false);
+    setMobileNavOpen(false);
   };
 
   // ✱ If page loads with a hash, auto-offset scroll once content paints
@@ -343,17 +417,18 @@ export default function Navbar() {
 
             {/* ✅ Mobile: avatar replaces hamburger when signed in */}
             {authReady && user ? (
-              <div className="sm:hidden relative" ref={dropdownRef}>
+              <div className="sm:hidden relative" ref={mobileDropdownContainerRef}>
                 <button
                   type="button"
-                  ref={dropdownBtnRef}
+                  ref={mobileDropdownTriggerRef}
                   onClick={() => {
-                    setShowDropdown((v) => !v);
-                    setDropdownIndex(0);
+                    toggleMobileDropdown();
+                    closeDesktopDropdown();
+                    setMobileNavOpen(false);
                   }}
                   aria-haspopup="menu"
-                  aria-expanded={showDropdown}
-                  aria-controls={`${dropdownMenuId}-mobile`}
+                  aria-expanded={mobileDropdownOpen}
+                  aria-controls={mobileDropdownMenuId}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 hover:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60"
                 >
                   <img
@@ -371,12 +446,12 @@ export default function Navbar() {
                   />
                 </button>
 
-                {showDropdown && (
+                {mobileDropdownOpen && (
                   <div
-                    id={`${dropdownMenuId}-mobile`}
+                    id={mobileDropdownMenuId}
                     role="menu"
                     aria-label="User menu"
-                    className="absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#132e53]/95 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,.35)] z-50 overflow-hidden"
+                    className="absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#132e53]/95 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,.35)] z-100 overflow-hidden"
                   >
                     <div className="px-4 py-3 border-b border-white/10">
                       <p className="text-sm font-medium text-white">
@@ -388,29 +463,25 @@ export default function Navbar() {
                       <Link
                         to="/dashboard"
                         role="menuitem"
-                        ref={(el) => { dropdownItemsRef.current[0] = el; }}
+                        ref={registerMobileDropdownItem(0)}
                         className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
-                        onClick={() => setShowDropdown(false)}
+                        onClick={() => {
+                          closeMobileDropdown();
+                          setMobileNavOpen(false);
+                        }}
                       >
                         Dashboard
-                      </Link>
-                      <Link
-                        to="/settings"
-                        role="menuitem"
-                        ref={(el) => { dropdownItemsRef.current[1] = el; }}
-                        className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        Settings
                       </Link>
                     </div>
                     <div className="border-t border-white/10">
                       <button
                         type="button"
                         role="menuitem"
-                        ref={(el) => { dropdownItemsRef.current[2] = el; }}
+                        ref={registerMobileDropdownItem(1)}
                         onClick={(e) => {
                           e.stopPropagation();
+                          closeMobileDropdown();
+                          setMobileNavOpen(false);
                           handleSignOut();
                         }}
                         className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition focus:outline-none"
@@ -425,36 +496,36 @@ export default function Navbar() {
               /* Mobile: hamburger for logged-out users */
               <button
                 type="button"
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => setMobileNavOpen((v) => !v)}
                 className="
                   md:hidden inline-flex h-9 w-9 items-center justify-center
                   rounded-lg border border-white/15 text-white/90
                   hover:bg-white/5 transition
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
                 "
-                aria-expanded={open}
+                aria-expanded={mobileNavOpen}
                 aria-controls="mobile-nav"
                 aria-label="Toggle menu"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth={1.8}>
-                  {open ? <path d="M6 6l12 12M18 6L6 18" /> : (<><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>)}
+                  {mobileNavOpen ? <path d="M6 6l12 12M18 6L6 18" /> : (<><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>)}
                 </svg>
               </button>
             )}
 
             {/* Desktop user dropdown */}
             {authReady && user && (
-              <div className="hidden sm:block relative" ref={dropdownRef}>
+              <div className="hidden sm:block relative" ref={desktopDropdownContainerRef}>
                 <button
                   type="button"
-                  ref={dropdownBtnRef}
+                  ref={desktopDropdownTriggerRef}
                   onClick={() => {
-                    setShowDropdown((v) => !v);
-                    setDropdownIndex(0);
+                    toggleDesktopDropdown();
+                    closeMobileDropdown();
                   }}
                   aria-haspopup="menu"
-                  aria-expanded={showDropdown}
-                  aria-controls={dropdownMenuId} // ✱
+                  aria-expanded={desktopDropdownOpen}
+                  aria-controls={desktopDropdownMenuId} // ✱
                   className="
                     flex items-center gap-2 rounded-full border border-white/20
                     px-2 py-2 hover:border-white/40 transition-colors
@@ -480,7 +551,7 @@ export default function Navbar() {
                     {user.user_metadata?.full_name?.split(" ")[0] || user.email?.split("@")[0]}
                   </span>
                   <svg
-                    className={clsx("w-4 h-4 text-white/60 transition-transform", showDropdown && "rotate-180")}
+                    className={clsx("w-4 h-4 text-white/60 transition-transform", desktopDropdownOpen && "rotate-180")}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -491,9 +562,9 @@ export default function Navbar() {
                 </button>
 
                 {/* Dropdown Menu (desktop) */}
-                {showDropdown && (
+                {desktopDropdownOpen && (
                   <div
-                    id={dropdownMenuId}
+                    id={desktopDropdownMenuId}
                     role="menu"
                     aria-label="User menu"
                     className="absolute right-0 mt-2 w-64 rounded-xl border border-white/10 bg-[#132e53]/95 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,.35)] z-50 overflow-hidden"
@@ -511,20 +582,14 @@ export default function Navbar() {
                       <Link
                         to="/dashboard"
                         role="menuitem"
-                        ref={(el) => { dropdownItemsRef.current[0] = el; }} // ✱ focus order
+                        ref={registerDesktopDropdownItem(0)}
                         className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
-                        onClick={() => setShowDropdown(false)}
+                        onClick={() => {
+                          closeDesktopDropdown();
+                          closeMobileDropdown();
+                        }}
                       >
                         Dashboard
-                      </Link>
-                      <Link
-                        to="/settings"
-                        role="menuitem"
-                        ref={(el) => { dropdownItemsRef.current[1] = el; }}
-                        className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        Settings
                       </Link>
                     </div>
 
@@ -533,9 +598,10 @@ export default function Navbar() {
                       <button
                         type="button"
                         role="menuitem"
-                        ref={(el) => { dropdownItemsRef.current[2] = el; }}
+                        ref={registerDesktopDropdownItem(1)}
                         onClick={(e) => {
                           e.stopPropagation();
+                          closeDesktopDropdown();
                           handleSignOut();
                         }}
                         className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition focus:outline-none"
@@ -556,7 +622,7 @@ export default function Navbar() {
         id="mobile-nav"
         className={clsx(
           "md:hidden overflow-hidden transition-[max-height,opacity] duration-300",
-          open ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+          mobileNavOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
         )}
       >
         <div
@@ -612,7 +678,7 @@ export default function Navbar() {
                 ) : (
                   <Link
                     to={link.href}
-                    onClick={() => setOpen(false)}
+                    onClick={() => setMobileNavOpen(false)}
                     className="
                       block rounded-lg px-3 py-2
                       text-sm font-medium text-white/80
@@ -632,26 +698,17 @@ export default function Navbar() {
                 <li className="mt-2">
                   <Link
                     to="/dashboard"
-                    onClick={() => setOpen(false)}
+                    onClick={() => setMobileNavOpen(false)}
                     className="block rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition"
                   >
                     Dashboard
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/settings"
-                    onClick={() => setOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition"
-                  >
-                    Settings
                   </Link>
                 </li>
                 <li className="mt-2 pt-2 border-t border-white/10">
                   <button
                     type="button"
                     onClick={() => {
-                      setOpen(false);
+                      setMobileNavOpen(false);
                       handleSignOut();
                     }}
                     className="

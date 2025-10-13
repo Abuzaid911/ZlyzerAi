@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
-import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import VideoAnalysis from "./pages/VideoAnalysis";
 import Pricing from "./pages/Pricing";
@@ -29,26 +28,24 @@ export default function App() {
           <div className="flex min-h-screen flex-col bg-[#132e53] text-white antialiased ">
             <Background />
             <Navbar />
-
-          <Routes>
-            <Route path="/landing" element={<Landing />} />
-            <Route path="/" element={<Home />} />
-            {/* Support both /callback and /auth/callback for OAuth redirects */}
-            <Route path="/callback" element={<AuthCallback />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/video-analysis" element={<VideoAnalysis />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/guided-test" element={<GuidedTestPage />} />
-          </Routes>
-<Footer />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              {/* Support both /callback and /auth/callback for OAuth redirects */}
+              <Route path="/callback" element={<AuthCallback />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/video-analysis" element={<VideoAnalysis />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/guided-test" element={<GuidedTestPage />} />
+            </Routes>
+            <Footer />
           </div>
         </BrowserRouter>
       </ToastProvider>
