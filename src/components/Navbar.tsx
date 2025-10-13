@@ -624,22 +624,6 @@ export default function Navbar() {
                 </button>
               </li>
             )}
-
-            {!user && (
-              <li className="mt-3">
-                <Link
-                  to="/video-analysis"
-                  onClick={() => setOpen(false)}
-                  className="
-                    w-full text-center rounded-full bg-[#2ce695]
-                    px-4 py-2 text-sm font-semibold text-[#0b1b14]
-                    shadow-[0_8px_24px_rgba(44,230,149,0.35)] transition hover:brightness-110
-                  "
-                >
-                  Start analyzing
-                </Link>
-              </li>
-            )}
           </ul>
         </div>
       </div>
