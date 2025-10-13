@@ -103,16 +103,22 @@ export default function Navbar() {
     el?.focus();
   }, [dropdownIndex, showDropdown]);
 
-  // Sign in with Google
+  // Sign in with Google using PKCE flow
   const handleSignIn = async () => {
     try {
       // Store the current path for redirect after auth
-      sessionStorage.setItem('auth_redirect_to', window.location.pathname);
+      sessionStorage.setItem('postAuthRedirect', window.location.pathname);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { 
+          // Always use explicit callback URL, never window.location.href
           redirectTo: `${window.location.origin}/auth/callback`,
+          // Request PKCE flow for better security
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
       if (error) throw error;
@@ -126,11 +132,15 @@ export default function Navbar() {
     try {
       // Clear all session-related storage
       Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith("signed_up_") || key.startsWith("auth_")) {
+        if (
+          key.startsWith("signed_up_") || 
+          key.startsWith("auth_") ||
+          key === "postAuthRedirect"
+        ) {
           sessionStorage.removeItem(key);
         }
       });
-
+      
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       if (error) throw error;

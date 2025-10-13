@@ -129,14 +129,20 @@ export function useAnalysisForm<T extends AnalysisItem>({
       return true;
     }
 
-    // Store current path for redirect after auth
-    sessionStorage.setItem('auth_redirect_to', window.location.pathname);
+    // Store current path for redirect after auth using new key
+    sessionStorage.setItem('postAuthRedirect', window.location.pathname);
     
     setRedirecting(true);
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        // Always use explicit callback URL, never window.location.href
         redirectTo: `${window.location.origin}/auth/callback`,
+        // Request PKCE flow for better security
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     });
 
@@ -144,7 +150,7 @@ export function useAnalysisForm<T extends AnalysisItem>({
       console.error('Sign-in redirect failed:', signInError);
       setRedirectError('We could not start the sign-in flow. Disable pop-up blockers and try again.');
       setRedirecting(false);
-      sessionStorage.removeItem('auth_redirect_to'); // Clean up on error
+      sessionStorage.removeItem('postAuthRedirect'); // Clean up on error
     }
     
     return false;

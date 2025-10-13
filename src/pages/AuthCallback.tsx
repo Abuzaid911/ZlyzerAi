@@ -1,52 +1,112 @@
 // pages/AuthCallback.tsx
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 /**
- * OAuth callback handler page
+ * OAuth callback handler with PKCE support
  * 
  * This page:
- * 1. Exchanges the auth code for a session
- * 2. Retrieves the intended redirect path from sessionStorage
- * 3. Redirects the user to their intended destination or dashboard
+ * 1. Handles PKCE flow (?code=) by calling exchangeCodeForSession()
+ * 2. Handles legacy hash tokens (#access_token=) for backwards compatibility
+ * 3. Retrieves the intended redirect path from sessionStorage
+ * 4. Redirects the user to their intended destination
+ * 
+ * Security:
+ * - Never logs URLs containing tokens
+ * - Cleans up URL after processing tokens
+ * - Uses secure PKCE flow
  */
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Supabase automatically handles the code exchange via URL hash
-        // We just need to verify the session was created
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const searchParams = new URLSearchParams(location.search);
+        const hashParams = new URLSearchParams(location.hash.substring(1));
+        
+        const code = searchParams.get('code');
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        
+        let session = null;
 
-        if (sessionError) {
-          throw sessionError;
+        // ✅ PREFERRED: PKCE flow with authorization code
+        if (code) {
+          console.log('🔐 Processing PKCE authorization code...');
+          
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (exchangeError) {
+            throw new Error(`Failed to exchange code: ${exchangeError.message}`);
+          }
+          
+          session = data.session;
+          console.log('✅ PKCE session established');
+        }
+        
+        // ⚠️ LEGACY: Hash-based tokens (implicit flow) - for backwards compatibility
+        else if (accessToken && refreshToken) {
+          console.warn('⚠️ Using legacy hash token flow. Please migrate to PKCE.');
+          
+          const { data, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          
+          if (sessionError) {
+            throw new Error(`Failed to set session: ${sessionError.message}`);
+          }
+          
+          session = data.session;
+          
+          // Clean up the hash from URL immediately (security best practice)
+          const cleanUrl = window.location.pathname + window.location.search;
+          window.history.replaceState(null, '', cleanUrl);
+          console.log('🧹 Cleaned legacy tokens from URL');
+        }
+        
+        // ❌ No valid auth data found
+        else {
+          throw new Error('No authorization code or tokens found in callback URL');
         }
 
+        // Verify session was created
         if (!session) {
           throw new Error('No session created after authentication');
         }
 
         // Get the intended redirect path from sessionStorage
-        const intendedPath = sessionStorage.getItem('auth_redirect_to');
-        sessionStorage.removeItem('auth_redirect_to'); // Clean up
-
-        // Redirect to intended path or default to dashboard
-        const redirectPath = intendedPath || '/dashboard';
+        const postAuthRedirect = sessionStorage.getItem('postAuthRedirect');
+        sessionStorage.removeItem('postAuthRedirect'); // Clean up
         
-        // Small delay to ensure session is fully established
+        // Also clean up legacy key if it exists
+        sessionStorage.removeItem('auth_redirect_to');
+
+        // Determine where to redirect
+        const redirectPath = postAuthRedirect || '/dashboard';
+        
+        console.log(`✅ Authentication successful, redirecting to: ${redirectPath}`);
+        
+        // Small delay to ensure session is fully propagated
         setTimeout(() => {
           navigate(redirectPath, { replace: true });
         }, 100);
 
       } catch (err) {
-        console.error('Auth callback error:', err);
+        console.error('❌ Auth callback error:', err instanceof Error ? err.message : 'Unknown error');
+        // Never log the full error object as it might contain tokens
+        
         setError(err instanceof Error ? err.message : 'Authentication failed');
         
-        // Redirect to home with error after a delay
+        // Clean up any stored redirect paths
+        sessionStorage.removeItem('postAuthRedirect');
+        sessionStorage.removeItem('auth_redirect_to');
+        
+        // Redirect to home after showing error
         setTimeout(() => {
           navigate('/', { replace: true });
         }, 3000);
@@ -54,7 +114,7 @@ export default function AuthCallback() {
     };
 
     void handleCallback();
-  }, [navigate]);
+  }, [navigate, location]);
 
   if (error) {
     return (
