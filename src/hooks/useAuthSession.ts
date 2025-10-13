@@ -25,8 +25,9 @@ export function useAuthSession(): AuthSessionState {
 
   useEffect(() => {
     let mounted = true;
+    let refreshInterval: number | undefined;
 
-    // Initial session check
+    // Initial session check with refresh
     const checkSession = async () => {
       try {
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
@@ -53,20 +54,50 @@ export function useAuthSession(): AuthSessionState {
     // Subscribe to auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (mounted) {
-        setSession(newSession);
-        
-        // If not ready yet, mark as ready now
-        if (!authReady) {
-          setAuthReady(true);
-        }
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!mounted) return;
+
+      // Handle token refresh
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 Token refreshed');
+      }
+      
+      // Handle expired token
+      if (event === 'SIGNED_OUT') {
+        console.log('🔓 User signed out or token expired');
+      }
+
+      setSession(newSession);
+      
+      // If not ready yet, mark as ready now
+      if (!authReady) {
+        setAuthReady(true);
       }
     });
+
+    // Revalidate session when page becomes visible (handles background tab throttling)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Tab became visible, rechecking session...');
+        void checkSession();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Periodic session validation (every 5 minutes)
+    // This catches expired tokens before API calls fail
+    refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void checkSession();
+      }
+    }, 5 * 60 * 1000); // 5 minutes
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (refreshInterval) clearInterval(refreshInterval);
     };
   }, []); // Only run on mount
 

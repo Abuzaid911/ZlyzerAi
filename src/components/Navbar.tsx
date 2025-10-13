@@ -130,7 +130,11 @@ export default function Navbar() {
   // Sign out with reliable cleanup
   const handleSignOut = async () => {
     try {
-      // Clear all session-related storage
+      setShowDropdown(false);
+      
+      console.log('🔓 Signing out...');
+      
+      // Clear all session-related storage BEFORE sign out
       Object.keys(sessionStorage).forEach((key) => {
         if (
           key.startsWith("signed_up_") || 
@@ -141,17 +145,36 @@ export default function Navbar() {
         }
       });
       
-      // Sign out from Supabase
+      // Clear any analysis history from localStorage
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("zlyzer-")) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Sign out from Supabase (this triggers onAuthStateChange)
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase sign out error:", error);
+        throw error;
+      }
       
-      setShowDropdown(false);
-      
-      // Force a session recheck after signout
+      // Force immediate session recheck to ensure UI updates
       await supabase.auth.getSession();
+      
+      console.log('✅ Signed out successfully');
+      
+      // Optional: redirect to home page after sign out
+      // This ensures clean state even if listeners don't fire
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
       
     } catch (error) {
       console.error("Error signing out:", error);
+      
+      // Force a hard refresh to clear any stale state
+      window.location.href = '/';
     }
   };
 

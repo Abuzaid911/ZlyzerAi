@@ -151,15 +151,35 @@ async function apiFetch<T>(
   const body = await readBodySafe(res);
 
   if (!res.ok) {
-    // Handle 401 Unauthorized - session may be invalid
+    // Handle 401 Unauthorized - session may be invalid/expired
     if (res.status === 401) {
-      // Trigger session recheck to update UI
-      const { supabase } = await import('./supabaseClient');
-      const { data: { session } } = await supabase.auth.getSession();
+      console.warn('⚠️ 401 Unauthorized - checking session validity...');
       
-      // If no valid session, sign out to clean up state
-      if (!session) {
+      // Dynamically import to avoid circular dependencies
+      const { supabase } = await import('./supabaseClient');
+      
+      // Force a fresh session check
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.log('🔓 Invalid/expired session detected, signing out...');
+        
+        // Force sign out to clean up stale state
         await supabase.auth.signOut();
+        
+        // Clear any local storage that might be stale
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('signed_up_') || 
+              key.startsWith('auth_') || 
+              key === 'postAuthRedirect') {
+            sessionStorage.removeItem(key);
+          }
+        });
+        
+        // The onAuthStateChange listener will update UI automatically
+        console.log('✅ Stale session cleared, UI will update');
+      } else {
+        console.log('✅ Session is valid, 401 was from API server');
       }
     }
     
