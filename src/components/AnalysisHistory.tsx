@@ -11,7 +11,7 @@ interface AnalysisHistoryProps {
   history: AnalysisItem[];
   currentResult: AnalysisItem | null;
   variant: Variant;
-  resultRef: React.RefObject<HTMLDivElement>; // null allowed at runtime
+  resultRef: React.RefObject<HTMLDivElement | null>;
   currentStatus: PollStatus;
 }
 
