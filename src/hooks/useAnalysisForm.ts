@@ -6,6 +6,7 @@ import { usePersistedHistory } from './usePersistedHistory';
 
 interface AnalysisItem {
   id: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -41,7 +42,7 @@ export function useAnalysisForm<T extends AnalysisItem>({
   const resultRef = useRef<HTMLDivElement | null>(null);
   
   // Use persisted history
-  const [history, setHistory] = usePersistedHistory<T>(storageKey, MAX_HISTORY_ITEMS);
+  const { history, setHistory } = usePersistedHistory<T>(storageKey, MAX_HISTORY_ITEMS);
   
   // Track which results and errors we've already notified about to prevent duplicate toasts
   const notifiedResultsRef = useRef(new Set<string>());
@@ -73,8 +74,8 @@ export function useAnalysisForm<T extends AnalysisItem>({
   // Manage history and scroll to results
   useEffect(() => {
     if (status === 'completed' && result) {
-      setHistory((prev) => {
-        const ids = new Set(prev.map((r) => r.id));
+      setHistory((prev: T[]) => {
+        const ids = new Set(prev.map((r: T) => r.id));
         if (ids.has(result.id)) return prev;
         
         // Keep only the most recent MAX_HISTORY_ITEMS
@@ -93,7 +94,8 @@ export function useAnalysisForm<T extends AnalysisItem>({
         onSuccess?.(result);
       }
     }
-  }, [status, result, setHistory]); // Removed onSuccess from dependencies to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, result, setHistory]); // Intentionally omit onSuccess to prevent infinite loop
   
   // Handle errors - only notify once per unique error message
   useEffect(() => {
@@ -101,7 +103,8 @@ export function useAnalysisForm<T extends AnalysisItem>({
       notifiedErrorsRef.current.add(error);
       onError?.(error);
     }
-  }, [error]); // Removed onError from dependencies to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]); // Intentionally omit onError to prevent infinite loop
 
   // Clear redirecting state when user is authenticated
   useEffect(() => {
