@@ -8,64 +8,65 @@ export default function AuthCallback() {
   const location = useLocation();
 
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+    
+    const handleCallback = async () => {
       try {
-        // 1) Detect which flow we got
-        const hasCode = location.search.includes("code=");
-        const hasLegacyTokens =
-          location.hash.startsWith("#access_token=") ||
-          location.hash.includes("access_token=");
-
-        if (!hasCode && !hasLegacyTokens) {
-          throw new Error("No authorization code or tokens found in callback URL");
-        }
-
-        // 2) Process authentication
-        if (hasLegacyTokens) {
-          // TEMP: legacy hash flow -> setSession using hash tokens
-          const params = new URLSearchParams(location.hash.slice(1));
-          const access_token = params.get("access_token");
-          const refresh_token = params.get("refresh_token");
-
-          if (!access_token || !refresh_token) {
-            throw new Error("Missing legacy tokens");
-          }
-          await supabase.auth.setSession({ access_token, refresh_token });
-
-          // Scrub tokens from URL (security)
-          window.history.replaceState(null, "", window.location.pathname + window.location.search);
-        } else {
-          // PKCE: exchange ?code=... for a session
-          const params = new URLSearchParams(location.search);
-          const code = params.get("code");
-          
-          if (!code) {
-            throw new Error("Missing authorization code");
-          }
-          
-          await supabase.auth.exchangeCodeForSession(code);
-        }
-
-        // 3) Confirm session exists
+        // Supabase automatically processes OAuth callbacks via its internal listeners
+        // We just need to wait for the session to become available
+        
+        // Small delay to let Supabase's automatic processing complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Check for session
         const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        if (!data?.session) throw new Error("Session not established");
+        
+        if (error) {
+          console.error("Session error:", error.message);
+          throw new Error("Failed to get session");
+        }
 
-        // 4) Figure out where to go next
+        if (!data?.session) {
+          // Session not ready yet, retry after a short delay
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const { data: retryData, error: retryError } = await supabase.auth.getSession();
+          
+          if (retryError || !retryData?.session) {
+            throw new Error("Session not established after OAuth");
+          }
+        }
+
+        if (!mounted) return;
+
+        // Clean up hash tokens from URL if present (security)
+        if (location.hash.includes("access_token")) {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+
+        // Get redirect destination
         const next = sessionStorage.getItem("postAuthRedirect") || "/video-analysis";
         sessionStorage.removeItem("postAuthRedirect");
         sessionStorage.removeItem("auth_redirect_to");
 
-        // 5) Redirect
+        // Redirect to destination
         navigate(next, { replace: true });
       } catch (err) {
+        if (!mounted) return;
+        
         // Avoid logging the full error (could include tokens in some envs)
         console.error("Auth callback error:", (err as Error)?.message || err);
         sessionStorage.removeItem("postAuthRedirect");
         sessionStorage.removeItem("auth_redirect_to");
         navigate("/", { replace: true });
       }
-    })();
+    };
+
+    handleCallback();
+
+    return () => {
+      mounted = false;
+    };
   }, [location, navigate]);
 
   // Minimal loading UI
