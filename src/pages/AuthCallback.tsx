@@ -25,58 +25,48 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        const searchParams = new URLSearchParams(location.search);
-        const hashParams = new URLSearchParams(location.hash.substring(1));
+        console.log('🔐 Processing OAuth callback...');
         
-        const code = searchParams.get('code');
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
+        // Supabase automatically handles OAuth callbacks via onAuthStateChange
+        // We just need to wait for the session to be available
         
-        let session = null;
-
-        // ✅ PREFERRED: PKCE flow with authorization code
-        if (code) {
-          console.log('🔐 Processing PKCE authorization code...');
-          
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          
-          if (exchangeError) {
-            throw new Error(`Failed to exchange code: ${exchangeError.message}`);
-          }
-          
-          session = data.session;
-          console.log('✅ PKCE session established');
+        // Check if we have URL parameters
+        const hasCode = location.search.includes('code=');
+        const hasHashTokens = location.hash.includes('access_token');
+        
+        if (!hasCode && !hasHashTokens) {
+          throw new Error('No authorization parameters found in callback URL');
         }
-        
-        // ⚠️ LEGACY: Hash-based tokens (implicit flow) - for backwards compatibility
-        else if (accessToken && refreshToken) {
-          console.warn('⚠️ Using legacy hash token flow. Please migrate to PKCE.');
+
+        // Wait for Supabase to process the OAuth callback automatically
+        // It handles both PKCE codes and legacy hash tokens
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('Session error:', sessionError.message);
+          throw new Error(`Failed to get session: ${sessionError.message}`);
+        }
+
+        if (!session) {
+          // Session not ready yet, wait a bit and try again
+          await new Promise(resolve => setTimeout(resolve, 500));
           
-          const { data, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+          const { data: { session: retrySession }, error: retryError } = await supabase.auth.getSession();
           
-          if (sessionError) {
-            throw new Error(`Failed to set session: ${sessionError.message}`);
+          if (retryError || !retrySession) {
+            throw new Error('No session created after authentication');
           }
           
-          session = data.session;
-          
-          // Clean up the hash from URL immediately (security best practice)
+          console.log('✅ Session established (retry)');
+        } else {
+          console.log('✅ Session established');
+        }
+
+        // Clean up URL if it has hash tokens (security best practice)
+        if (hasHashTokens) {
           const cleanUrl = window.location.pathname + window.location.search;
           window.history.replaceState(null, '', cleanUrl);
-          console.log('🧹 Cleaned legacy tokens from URL');
-        }
-        
-        // ❌ No valid auth data found
-        else {
-          throw new Error('No authorization code or tokens found in callback URL');
-        }
-
-        // Verify session was created
-        if (!session) {
-          throw new Error('No session created after authentication');
+          console.log('🧹 Cleaned tokens from URL');
         }
 
         // Get the intended redirect path from sessionStorage
@@ -94,7 +84,7 @@ export default function AuthCallback() {
         // Small delay to ensure session is fully propagated
         setTimeout(() => {
           navigate(redirectPath, { replace: true });
-        }, 100);
+        }, 200);
 
       } catch (err) {
         console.error('❌ Auth callback error:', err instanceof Error ? err.message : 'Unknown error');
