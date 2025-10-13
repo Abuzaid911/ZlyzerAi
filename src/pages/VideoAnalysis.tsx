@@ -73,7 +73,7 @@ export default function VideoAnalysis() {
   // Show loading skeleton while auth is being checked
   if (!authReady) {
     return (
-      <main className="min-h-screen bg-[linear-gradient(180deg,#132e53_0%,#191e29_100%)] px-6 py-12 text-white mt-28">
+      <main className="min-h-screen px-6 py-12 text-white mt-28">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-16">
           <section className="text-center">
             <div className="h-12 w-3/4 mx-auto animate-pulse rounded-lg bg-white/10" />
@@ -88,7 +88,7 @@ export default function VideoAnalysis() {
   }
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#132e53_0%,#191e29_100%)] px-6 py-12 text-white mt-28">
+    <main className="min-h-screen px-6 py-12 text-white mt-28">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-16">
         {/* Video Analysis Section */}
         <section className="text-center">

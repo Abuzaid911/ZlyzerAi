@@ -78,7 +78,6 @@ export function useAuthSession(): AuthSessionState {
     // Revalidate session when page becomes visible (handles background tab throttling)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('👁️ Tab became visible, rechecking session...');
         void checkSession();
       }
     };
