@@ -6,6 +6,7 @@ import type {
   CreateAnalysisResponse,
   ProfileAnalysisRequest,
 } from '../types/api';
+import { clearPostAuthRedirect } from '../utils/authRedirect';
 
 /**
  * Server contract notes (from Elysia docs):
@@ -117,6 +118,7 @@ async function apiFetch<T>(
   options: RequestInit & { timeoutMs?: number } = {}
 ): Promise<T> {
   const token = await getAccessToken().catch(() => null);
+  const hadToken = Boolean(token);
   const sessionId = ensureSessionId();
 
   const { timeoutMs, signal, headers: hdrs, ...rest } = options;
@@ -154,32 +156,37 @@ async function apiFetch<T>(
     // Handle 401 Unauthorized - session may be invalid/expired
     if (res.status === 401) {
       console.warn('⚠️ 401 Unauthorized - checking session validity...');
-      
-      // Dynamically import to avoid circular dependencies
-      const { supabase } = await import('./supabaseClient');
-      
-      // Force a fresh session check
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.log('🔓 Invalid/expired session detected, signing out...');
-        
-        // Force sign out to clean up stale state
-        await supabase.auth.signOut();
-        
-        // Clear any localStorage that might be stale
-        Object.keys(sessionStorage).forEach(key => {
-          if (key.startsWith('signed_up_') || 
-              key.startsWith('auth_') || 
-              key === 'postAuthRedirect') {
-            sessionStorage.removeItem(key);
-          }
-        });
-        
-        // The onAuthStateChange listener will update UI automatically
-        console.log('✅ Stale session cleared, UI will update');
+
+      if (!hadToken) {
+        console.log('ℹ️ Request had no auth token; leaving client session untouched.');
       } else {
-        console.log('✅ Session is valid, 401 was from API server');
+        // Dynamically import to avoid circular dependencies
+        const { supabase } = await import('./supabaseClient');
+        
+        // Force a fresh session check
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          console.log('🔓 Invalid/expired session detected, signing out...');
+          
+          // Force sign out to clean up stale state
+          await supabase.auth.signOut();
+          
+          Object.keys(sessionStorage).forEach(key => {
+            if (
+              key.startsWith('signed_up_') ||
+              key.startsWith('auth_')
+            ) {
+              sessionStorage.removeItem(key);
+            }
+          });
+          clearPostAuthRedirect();
+          
+          // The onAuthStateChange listener will update UI automatically
+          console.log('✅ Stale session cleared, UI will update');
+        } else {
+          console.log('✅ Session is valid, 401 was from API server');
+        }
       }
     }
     

@@ -12,6 +12,7 @@ import AuthCallback from "./pages/AuthCallback";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ToastProvider } from "./components/Toast";
 import GuidedTestPage from "./pages/GuidedTestPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Fixed Background
 const Background: React.FC = () => (
@@ -36,7 +37,14 @@ export default function App() {
             <Route path="/callback" element={<AuthCallback />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/video-analysis" element={<VideoAnalysis />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/guided-test" element={<GuidedTestPage />} />
           </Routes>

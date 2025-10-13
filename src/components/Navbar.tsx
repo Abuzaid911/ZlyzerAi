@@ -5,6 +5,8 @@ import clsx from "clsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuthBootstrap } from "../hooks/useAuthBootstrap";
 import { useAuthSession } from "../hooks/useAuthSession";
+import { useToast } from "./Toast";
+import { buildRedirectPath, clearPostAuthRedirect, savePostAuthRedirect } from "../utils/authRedirect";
 
 const NAV_LINKS = [
   { label: "Overview", href: "#hero" },
@@ -30,12 +32,25 @@ export default function Navbar() {
   const dropdownItemsRef = useRef<Array<HTMLAnchorElement | HTMLButtonElement | null>>([]); // ✱
   const location = useLocation();
   const dropdownMenuId = useId(); // ✱ a11y
+  const toast = useToast();
+  const bootstrapErrorRef = useRef<string | null>(null);
 
   // Use the new auth session hook - single source of truth
   const { user, isSignedIn, authReady } = useAuthSession();
 
   // Auto-signup after login
-  useAuthBootstrap();
+  const { error: bootstrapError } = useAuthBootstrap();
+
+  useEffect(() => {
+    if (bootstrapError) {
+      if (bootstrapErrorRef.current !== bootstrapError) {
+        bootstrapErrorRef.current = bootstrapError;
+        toast.error('We could not register you with the backend. Some features may be unavailable right now.');
+      }
+    } else {
+      bootstrapErrorRef.current = null;
+    }
+  }, [bootstrapError, toast]);
 
   // Clean up OAuth hash after authentication
   useEffect(() => {
@@ -107,7 +122,7 @@ export default function Navbar() {
   const handleSignIn = async () => {
     try {
       // Store the current path for redirect after auth
-      sessionStorage.setItem('postAuthRedirect', window.location.pathname);
+      savePostAuthRedirect(buildRedirectPath(location));
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -138,12 +153,12 @@ export default function Navbar() {
       Object.keys(sessionStorage).forEach((key) => {
         if (
           key.startsWith("signed_up_") || 
-          key.startsWith("auth_") ||
-          key === "postAuthRedirect"
+          key.startsWith("auth_")
         ) {
           sessionStorage.removeItem(key);
         }
       });
+      clearPostAuthRedirect();
       
       // Clear any analysis history from localStorage
       Object.keys(localStorage).forEach((key) => {

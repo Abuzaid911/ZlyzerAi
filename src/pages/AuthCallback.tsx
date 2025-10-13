@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { clearPostAuthRedirect, consumePostAuthRedirect } from "../utils/authRedirect";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -45,8 +46,7 @@ export default function AuthCallback() {
         }
 
         // Get redirect destination
-        const next = sessionStorage.getItem("postAuthRedirect") || "/video-analysis";
-        sessionStorage.removeItem("postAuthRedirect");
+        const next = consumePostAuthRedirect("/video-analysis");
         sessionStorage.removeItem("auth_redirect_to");
 
         // Redirect to destination
@@ -56,7 +56,7 @@ export default function AuthCallback() {
         
         // Avoid logging the full error (could include tokens in some envs)
         console.error("Auth callback error:", (err as Error)?.message || err);
-        sessionStorage.removeItem("postAuthRedirect");
+        clearPostAuthRedirect();
         sessionStorage.removeItem("auth_redirect_to");
         navigate("/", { replace: true });
       }

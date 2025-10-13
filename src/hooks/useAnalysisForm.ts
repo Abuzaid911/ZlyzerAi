@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { PROGRESS_CONSTANTS, MAX_HISTORY_ITEMS, COOLDOWN_MS } from '../constants/analysis';
 import { usePersistedHistory } from './usePersistedHistory';
+import { clearPostAuthRedirect, savePostAuthRedirect } from '../utils/authRedirect';
 
 interface AnalysisItem {
   id: string;
@@ -133,7 +134,7 @@ export function useAnalysisForm<T extends AnalysisItem>({
     }
 
     // Store current path for redirect after auth using new key
-    sessionStorage.setItem('postAuthRedirect', window.location.pathname);
+    savePostAuthRedirect();
     
     setRedirecting(true);
     const { error: signInError } = await supabase.auth.signInWithOAuth({
@@ -153,7 +154,7 @@ export function useAnalysisForm<T extends AnalysisItem>({
       console.error('Sign-in redirect failed:', signInError);
       setRedirectError('We could not start the sign-in flow. Disable pop-up blockers and try again.');
       setRedirecting(false);
-      sessionStorage.removeItem('postAuthRedirect'); // Clean up on error
+      clearPostAuthRedirect(); // Clean up on error
     }
     
     return false;
@@ -203,4 +204,3 @@ export function useAnalysisForm<T extends AnalysisItem>({
     error,
   };
 }
-
