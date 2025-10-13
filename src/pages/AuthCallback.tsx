@@ -21,6 +21,7 @@ export default function AuthCallback() {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -69,22 +70,31 @@ export default function AuthCallback() {
           console.log('🧹 Cleaned tokens from URL');
         }
 
-        // Get the intended redirect path from sessionStorage
-        const postAuthRedirect = sessionStorage.getItem('postAuthRedirect');
-        sessionStorage.removeItem('postAuthRedirect'); // Clean up
-        
-        // Also clean up legacy key if it exists
+        // Clean up stored redirect paths
+        sessionStorage.removeItem('postAuthRedirect');
         sessionStorage.removeItem('auth_redirect_to');
-
-        // Determine where to redirect
-        const redirectPath = postAuthRedirect || '/dashboard';
         
-        console.log(`✅ Authentication successful, redirecting to: ${redirectPath}`);
+        console.log('✅ Authentication successful! Redirecting in 5 seconds...');
         
-        // Small delay to ensure session is fully propagated
+        // Start 5-second countdown
+        setCountdown(5);
+        
+        // Update countdown every second
+        const countdownInterval = setInterval(() => {
+          setCountdown(prev => {
+            if (prev === null || prev <= 1) {
+              clearInterval(countdownInterval);
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        
+        // Redirect to video-analysis after 5 seconds
         setTimeout(() => {
-          navigate(redirectPath, { replace: true });
-        }, 200);
+          clearInterval(countdownInterval);
+          navigate('/video-analysis', { replace: true });
+        }, 5000);
 
       } catch (err) {
         console.error('❌ Auth callback error:', err instanceof Error ? err.message : 'Unknown error');
@@ -119,6 +129,42 @@ export default function AuthCallback() {
     );
   }
 
+  // Show countdown after successful authentication
+  if (countdown !== null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#132e53_0%,#191e29_100%)] px-6 text-white">
+        <div className="max-w-md text-center">
+          <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-[#2ce695]/20 ring-4 ring-[#2ce695]/30">
+            <svg
+              className="h-10 w-10 text-[#2ce695]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold">Welcome Back!</h1>
+          <p className="mt-3 text-lg text-white/90">
+            Authentication successful
+          </p>
+          <div className="mt-8 inline-flex h-24 w-24 items-center justify-center rounded-full bg-white/5 ring-2 ring-white/10">
+            <span className="text-5xl font-bold text-[#2ce695]">{countdown}</span>
+          </div>
+          <p className="mt-4 text-sm text-white/70">
+            Redirecting to video analysis...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while processing
   return (
     <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#132e53_0%,#191e29_100%)] px-6 text-white">
       <div className="max-w-md text-center">
