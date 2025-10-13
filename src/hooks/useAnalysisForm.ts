@@ -129,11 +129,14 @@ export function useAnalysisForm<T extends AnalysisItem>({
       return true;
     }
 
+    // Store current path for redirect after auth
+    sessionStorage.setItem('auth_redirect_to', window.location.pathname);
+    
     setRedirecting(true);
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + window.location.pathname,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
@@ -141,6 +144,7 @@ export function useAnalysisForm<T extends AnalysisItem>({
       console.error('Sign-in redirect failed:', signInError);
       setRedirectError('We could not start the sign-in flow. Disable pop-up blockers and try again.');
       setRedirecting(false);
+      sessionStorage.removeItem('auth_redirect_to'); // Clean up on error
     }
     
     return false;

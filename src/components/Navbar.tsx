@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuthBootstrap } from "../hooks/useAuthBootstrap";
-import type { User } from "@supabase/supabase-js";
+import { useAuthSession } from "../hooks/useAuthSession";
 
 const NAV_LINKS = [
   { label: "Overview", href: "#hero" },
@@ -18,7 +18,6 @@ const getHash = (path: string) => (path.includes("#") ? path.slice(path.indexOf(
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownIndex, setDropdownIndex] = useState(0); // ✱ keyboard nav
   const reduceMotion = useMemo(
@@ -32,39 +31,22 @@ export default function Navbar() {
   const location = useLocation();
   const dropdownMenuId = useId(); // ✱ a11y
 
+  // Use the new auth session hook - single source of truth
+  const { user, isSignedIn, authReady } = useAuthSession();
+
   // Auto-signup after login
   useAuthBootstrap();
-
-  // Auth state management
-  useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) setUser(session?.user ?? null);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) setUser(session?.user ?? null);
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
 
   // Clean up OAuth hash after authentication
   useEffect(() => {
     const hash = window.location.hash;
     // If user is authenticated and there's an OAuth hash, clean it up
-    if (user && hash && hash.includes('access_token')) {
+    if (isSignedIn && hash && hash.includes('access_token')) {
       // Remove the hash from the URL without triggering a page reload
       const urlWithoutHash = window.location.pathname + window.location.search;
       window.history.replaceState(null, '', urlWithoutHash);
     }
-  }, [user]);
+  }, [isSignedIn]);
 
   // Close mobile drawer & dropdown on route change
   useEffect(() => {
@@ -124,10 +106,14 @@ export default function Navbar() {
   // Sign in with Google
   const handleSignIn = async () => {
     try {
-      const redirectTo = window.location.href;
+      // Store the current path for redirect after auth
+      sessionStorage.setItem('auth_redirect_to', window.location.pathname);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo },
+        options: { 
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
       if (error) throw error;
     } catch (error) {
@@ -135,16 +121,25 @@ export default function Navbar() {
     }
   };
 
-  // Sign out
+  // Sign out with reliable cleanup
   const handleSignOut = async () => {
     try {
+      // Clear all session-related storage
       Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith("signed_up_")) sessionStorage.removeItem(key);
+        if (key.startsWith("signed_up_") || key.startsWith("auth_")) {
+          sessionStorage.removeItem(key);
+        }
       });
+
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
       setShowDropdown(false);
-      setUser(null);
+      
+      // Force a session recheck after signout
+      await supabase.auth.getSession();
+      
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -180,7 +175,7 @@ export default function Navbar() {
             window.scrollTo({ top: top + window.scrollY - headerOffset, behavior: "auto" });
           });
         }
-      } catch (error) {
+      } catch {
         // Invalid selector, ignore
         console.debug("Invalid hash selector:", hash);
       }
@@ -255,8 +250,13 @@ export default function Navbar() {
 
           {/* CTA + User Profile + Mobile controls */}
           <div className="flex items-center gap-3">
+            {/* Don't show auth-dependent UI until ready */}
+            {!authReady && (
+              <div className="h-9 w-20 animate-pulse rounded-full bg-white/10" />
+            )}
+            
             {/* Desktop Sign In */}
-            {!user && (
+            {authReady && !user && (
               <button
                 type="button"
                 onClick={handleSignIn}
@@ -274,7 +274,7 @@ export default function Navbar() {
             )}
 
             {/* Desktop CTA */}
-            {!user && (
+            {authReady && !user && (
               <Link
                 to="/video-analysis"
                 className="hidden md:inline-flex items-center justify-center rounded-full bg-[#2ce695] px-4 py-2 text-sm font-semibold text-[#0b1b14] shadow-[0_8px_24px_rgba(44,230,149,0.35)] transition hover:brightness-110"
@@ -284,7 +284,7 @@ export default function Navbar() {
             )}
 
             {/* ✅ Mobile CTA (visible on phones) */}
-            {!user && (
+            {authReady && !user && (
               <Link
                 to="/video-analysis"
                 className="md:hidden inline-flex items-center justify-center rounded-full bg-[#2ce695] px-3.5 py-2 text-xs font-semibold text-[#0b1b14] shadow-[0_6px_18px_rgba(44,230,149,0.35)] transition hover:brightness-110"
@@ -294,7 +294,7 @@ export default function Navbar() {
             )}
 
             {/* ✅ Mobile: avatar replaces hamburger when signed in */}
-            {user ? (
+            {authReady && user ? (
               <div className="sm:hidden relative" ref={dropdownRef}>
                 <button
                   type="button"
@@ -394,8 +394,8 @@ export default function Navbar() {
               </button>
             )}
 
-            {/* Desktop user dropdown (unchanged) */}
-            {user && (
+            {/* Desktop user dropdown */}
+            {authReady && user && (
               <div className="hidden sm:block relative" ref={dropdownRef}>
                 <button
                   type="button"

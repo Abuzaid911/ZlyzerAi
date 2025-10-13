@@ -8,6 +8,7 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import VideoAnalysis from "./pages/VideoAnalysis";
 import Pricing from "./pages/Pricing";
+import AuthCallback from "./pages/AuthCallback";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ToastProvider } from "./components/Toast";
 import GuidedTestPage from "./pages/GuidedTestPage";
@@ -31,6 +32,7 @@ export default function App() {
           <Routes>
             <Route path="/landing" element={<Landing />} />
             <Route path="/" element={<Home />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/video-analysis" element={<VideoAnalysis />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/pricing" element={<Pricing />} />

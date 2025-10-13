@@ -1,37 +1,19 @@
 // pages/VideoAnalysis.tsx - Refactored version
-import { useEffect, useState } from 'react';
 import { useCreateAnalysis } from '../hooks/useCreateAnalysis';
 import { useCreateProfileAnalysis } from '../hooks/useCreateProfileAnalysis';
 import { useAnalysisForm } from '../hooks/useAnalysisForm';
+import { useAuthSession } from '../hooks/useAuthSession';
 import { normalizeHandle } from '../utils/validation';
 import AnalysisForm from '../components/AnalysisForm';
 import AnalysisLoader from '../components/AnalysisLoader';
 import AnalysisHistory from '../components/AnalysisHistory';
 import { useToast } from '../components/Toast';
-import { supabase } from '../lib/supabaseClient';
 
 export default function VideoAnalysis() {
   const toast = useToast();
-  const [isSignedIn, setIsSignedIn] = useState(false);
-
-  // Check authentication state
-  useEffect(() => {
-    // Initial check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsSignedIn(!!session?.user);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsSignedIn(!!session?.user);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+  
+  // Use centralized auth session hook
+  const { isSignedIn, authReady } = useAuthSession();
   
   // Video analysis hook
   const {
@@ -87,6 +69,23 @@ export default function VideoAnalysis() {
       toast.error(`Analysis failed: ${error}`);
     },
   });
+
+  // Show loading skeleton while auth is being checked
+  if (!authReady) {
+    return (
+      <main className="min-h-screen bg-[linear-gradient(180deg,#132e53_0%,#191e29_100%)] px-6 py-12 text-white mt-28">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-16">
+          <section className="text-center">
+            <div className="h-12 w-3/4 mx-auto animate-pulse rounded-lg bg-white/10" />
+            <div className="mt-3 h-6 w-2/3 mx-auto animate-pulse rounded-lg bg-white/5" />
+            <div className="mt-8 rounded-3xl border border-white/15 bg-white/5 p-6 shadow-[0_20px_60px_rgba(19,46,83,0.45)]">
+              <div className="h-12 animate-pulse rounded-xl bg-white/5" />
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#132e53_0%,#191e29_100%)] px-6 py-12 text-white mt-28">

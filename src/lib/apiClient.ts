@@ -151,6 +151,18 @@ async function apiFetch<T>(
   const body = await readBodySafe(res);
 
   if (!res.ok) {
+    // Handle 401 Unauthorized - session may be invalid
+    if (res.status === 401) {
+      // Trigger session recheck to update UI
+      const { supabase } = await import('./supabaseClient');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // If no valid session, sign out to clean up state
+      if (!session) {
+        await supabase.auth.signOut();
+      }
+    }
+    
     // Prefer explicit server error payloads
     const message =
       (body && typeof body === 'object' && 'error' in (body as any) && (body as any).error) ||
