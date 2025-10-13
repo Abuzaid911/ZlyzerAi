@@ -55,6 +55,17 @@ export default function Navbar() {
     };
   }, []);
 
+  // Clean up OAuth hash after authentication
+  useEffect(() => {
+    const hash = window.location.hash;
+    // If user is authenticated and there's an OAuth hash, clean it up
+    if (user && hash && hash.includes('access_token')) {
+      // Remove the hash from the URL without triggering a page reload
+      const urlWithoutHash = window.location.pathname + window.location.search;
+      window.history.replaceState(null, '', urlWithoutHash);
+    }
+  }, [user]);
+
   // Close mobile drawer & dropdown on route change
   useEffect(() => {
     setOpen(false);
