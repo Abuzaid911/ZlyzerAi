@@ -1,4 +1,4 @@
-// pages/VideoAnalysis.tsx - Refactored version (with TikTok short-link expansion)
+// pages/VideoAnalysis.tsx - Refactored version
 import { useCreateAnalysis } from '../hooks/useCreateAnalysis';
 // import { useCreateProfileAnalysis } from '../hooks/useCreateProfileAnalysis';
 import { useAnalysisForm } from '../hooks/useAnalysisForm';
@@ -8,79 +8,6 @@ import AnalysisForm from '../components/AnalysisForm';
 import AnalysisLoader from '../components/AnalysisLoader';
 import AnalysisHistory from '../components/AnalysisHistory';
 import { useToast } from '../components/Toast';
-
-// ---------- Helpers: normalize + expand TikTok URLs ----------
-async function expandRedirect(url: string, timeoutMs = 4000): Promise<string | null> {
-  // Try to follow redirects client-side and read final URL.
-  // Note: Some browsers return an opaque response due to CORS; we then return null to let caller fallback.
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { method: 'GET', redirect: 'follow', signal: ctrl.signal });
-    // If CORS allows, response.url will be the final expanded URL.
-    if (res && typeof res.url === 'string' && res.url.trim()) {
-      return res.url;
-    }
-    return null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-function ensureHttps(u: string) {
-  const trimmed = u.trim();
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
-}
-
-function stripTrackingParams(u: string) {
-  try {
-    const url = new URL(u);
-    // Keep only meaningful params; drop common tracking noise
-    const allow = new Set(['lang', 'langCode']); // extend if you need
-    [...url.searchParams.keys()].forEach((k) => {
-      if (!allow.has(k)) url.searchParams.delete(k);
-    });
-    return url.toString();
-  } catch {
-    return u;
-  }
-}
-
-async function normalizeTikTokUrl(raw: string): Promise<string> {
-  let input = ensureHttps(raw);
-
-  // Basic canonicalization for standard TikTok URLs
-  try {
-    const u = new URL(input);
-    const host = u.hostname.toLowerCase();
-
-    // If it's a short link, try to expand
-    if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
-      const expanded = await expandRedirect(u.toString());
-      if (expanded) {
-        return stripTrackingParams(expanded);
-      }
-      // Fallback: keep the short URL but ensure https + strip params (backend should still handle)
-      return stripTrackingParams(u.toString());
-    }
-
-    // If it's already a canonical TikTok domain, just tidy params
-    if (
-      host.endsWith('tiktok.com') ||
-      host.endsWith('www.tiktok.com') ||
-      host.endsWith('m.tiktok.com')
-    ) {
-      return stripTrackingParams(u.toString());
-    }
-  } catch {
-    // ignore parse errors, return best-effort https input
-  }
-
-  return input;
-}
 
 export default function VideoAnalysis() {
   const toast = useToast();
@@ -100,15 +27,7 @@ export default function VideoAnalysis() {
   // Video form management
   const videoForm = useAnalysisForm({
     submitFn: async (url: string, prompt?: string) => {
-      // ✅ Normalize/expand TikTok short links before sending to backend
-      const normalized = await normalizeTikTokUrl(url);
-
-      // Optional: surface a tiny hint if we changed the input
-      if (normalized !== url) {
-        toast.info('Expanded TikTok link before analysis.');
-      }
-
-      await submitAnalysis(normalized, prompt);
+      await submitAnalysis(url, prompt);
     },
     result: videoResult,
     status: videoStatus,
@@ -119,11 +38,11 @@ export default function VideoAnalysis() {
       toast.success('Video analysis completed successfully!');
     },
     onError: (error) => {
-      toast.error(`Analysis failed: ${error}`);
+      toast.error(`Analysis failed: ${String(error)}`);
     },
   });
 
-  // // Profile analysis hook (kept commented as in your original)
+  // // Profile analysis hook
   // const {
   //   submitProfile,
   //   loading: profileLoading,
@@ -147,7 +66,7 @@ export default function VideoAnalysis() {
   //     toast.success('Profile analysis completed successfully!');
   //   },
   //   onError: (error) => {
-  //     toast.error(`Analysis failed: ${error}`);
+  //     toast.error(`Analysis failed: ${String(error)}`);
   //   },
   // });
 
@@ -221,8 +140,54 @@ export default function VideoAnalysis() {
           )}
         </section>
 
-        {/* Profile Analysis Section (optional) */}
-        {/* ...unchanged, commented out... */}
+        {/* Profile Analysis Section */}
+        {/* <section className="rounded-3xl border border-white/15 bg-white/5 p-6 shadow-[0_20px_60px_rgba(19,46,83,0.45)]">
+          <h2 className="text-2xl font-bold text-white">Analyze a TikTok Profile</h2>
+          <p className="mt-2 text-sm text-white/70">
+            Enter a profile handle (e.g. <span className="font-mono">@creator</span>). Zlyzer summarizes
+            their content themes, posting rhythm, and audience sentiment.
+          </p>
+
+          <div className="mt-6">
+            <AnalysisForm
+              onSubmit={profileForm.handleSubmit}
+              input={profileForm.input}
+              setInput={profileForm.setInput}
+              prompt={profileForm.prompt}
+              setPrompt={profileForm.setPrompt}
+              loading={profileForm.loading}
+              redirecting={profileForm.redirecting}
+              variant="profile"
+              inputPlaceholder="Enter TikTok handle"
+              promptPlaceholder="Summarize content pillars and posting cadence"
+              buttonText="Analyze profile"
+              isSignedIn={isSignedIn}
+            />
+          </div>
+
+          {(profileStatus === 'queued' || profileStatus === 'processing') && (
+            <AnalysisLoader
+              status={profileStatus}
+              message={profileStatus === 'queued' ? 'Queueing your profile analysis...' : 'Analyzing profile with AI...'}
+            />
+          )}
+
+          {(profileError || profileForm.redirectError) && (
+            <div className="mt-4 rounded-xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200">
+              {profileForm.redirectError ?? profileError}
+            </div>
+          )}
+
+          {(profileResult || profileForm.history.length > 0) && (
+            <AnalysisHistory
+              history={profileForm.history}
+              currentResult={profileResult}
+              variant="profile"
+              resultRef={profileForm.resultRef}
+              currentStatus={profileStatus}
+            />
+          )}
+        </section> */}
       </div>
     </main>
   );
