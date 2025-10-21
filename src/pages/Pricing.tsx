@@ -208,8 +208,6 @@ function FeatureItem({ text }: { text: string }) {
 function PlanCard({ plan, billing }: { plan: Plan; billing: BillingCycle }) {
   const isYearly = billing === "yearly";
   const price = plan.price[billing];
-  const secondary =
-    isYearly && typeof plan.price.monthly === "number" ? plan.price.monthly : null;
 
   return (
     <div
