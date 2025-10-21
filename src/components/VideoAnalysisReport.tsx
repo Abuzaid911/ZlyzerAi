@@ -149,7 +149,7 @@ function pathGet(obj: Record<string, unknown>, path: string): unknown {
   }, obj);
 }
 
-function pickFirstString(meta: Record<string, unknown>, paths: string[]): string | undefined {
+function pickFirstString(meta: Record<string, unknown>, paths: readonly string[]): string | undefined {
   for (const p of paths) {
     const v = pathGet(meta, p);
     if (typeof v === "string" && v.trim()) return v.trim();
@@ -157,7 +157,7 @@ function pickFirstString(meta: Record<string, unknown>, paths: string[]): string
   return undefined;
 }
 
-function pickStringArray(meta: Record<string, unknown>, paths: string[]): string[] | undefined {
+function pickStringArray(meta: Record<string, unknown>, paths: readonly string[]): string[] | undefined {
   for (const p of paths) {
     const v = pathGet(meta, p);
     const arr = normalizeStringArray(v);
@@ -179,7 +179,7 @@ function normalizeStringArray(v: unknown): string[] | undefined {
       else if (it && typeof it === "object") {
         const r = ["title", "heading", "label", "summary", "description", "insight"]
           .map((k) => (it as Record<string, unknown>)[k])
-          .filter((x): x is string => typeof x === "string" && x.trim())
+          .filter((x): x is string => typeof x === "string" && Boolean(x.trim()))
           .join(": ");
         if (r.trim()) items.push(r.trim());
       }
