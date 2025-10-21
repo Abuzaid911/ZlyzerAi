@@ -364,7 +364,6 @@ function RequestTable({
       <table className="min-w-full text-sm">
         <thead className="text-white/70">
           <tr className="border-b border-white/10">
-            <Th>ID</Th>
             <Th>Video URL</Th>
             <Th>Status</Th>
             <Th>Created</Th>
@@ -390,7 +389,7 @@ function RequestTable({
                 onClick={() => onClickRow(r)}
                 style={{ height: VIRTUAL_ROW_HEIGHT }}
               >
-                <Td mono className="max-w-[160px] truncate">{r.id}</Td>
+                {/* <Td mono className="max-w-[160px] truncate">{r.id}</Td> */}
                 <Td className="max-w-[420px] truncate">
                   <a
                     href={r.url}

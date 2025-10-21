@@ -1,9 +1,9 @@
 // pages/VideoAnalysis.tsx - Refactored version
 import { useCreateAnalysis } from '../hooks/useCreateAnalysis';
-import { useCreateProfileAnalysis } from '../hooks/useCreateProfileAnalysis';
+// import { useCreateProfileAnalysis } from '../hooks/useCreateProfileAnalysis';
 import { useAnalysisForm } from '../hooks/useAnalysisForm';
 import { useAuthSession } from '../hooks/useAuthSession';
-import { normalizeHandle } from '../utils/validation';
+// import { normalizeHandle } from '../utils/validation';
 import AnalysisForm from '../components/AnalysisForm';
 import AnalysisLoader from '../components/AnalysisLoader';
 import AnalysisHistory from '../components/AnalysisHistory';
@@ -42,33 +42,33 @@ export default function VideoAnalysis() {
     },
   });
 
-  // Profile analysis hook
-  const {
-    submitProfile,
-    loading: profileLoading,
-    error: profileError,
-    result: profileResult,
-    status: profileStatus,
-  } = useCreateProfileAnalysis();
+  // // Profile analysis hook
+  // const {
+  //   submitProfile,
+  //   loading: profileLoading,
+  //   error: profileError,
+  //   result: profileResult,
+  //   status: profileStatus,
+  // } = useCreateProfileAnalysis();
 
-  // Profile form management
-  const profileForm = useAnalysisForm({
-    submitFn: async (handle: string, prompt?: string) => {
-      await submitProfile(handle, prompt);
-    },
-    result: profileResult,
-    status: profileStatus,
-    loading: profileLoading,
-    error: profileError,
-    processInput: normalizeHandle,
-    storageKey: 'zlyzer-profile-analysis-history',
-    onSuccess: () => {
-      toast.success('Profile analysis completed successfully!');
-    },
-    onError: (error) => {
-      toast.error(`Analysis failed: ${error}`);
-    },
-  });
+  // // Profile form management
+  // const profileForm = useAnalysisForm({
+  //   submitFn: async (handle: string, prompt?: string) => {
+  //     await submitProfile(handle, prompt);
+  //   },
+  //   result: profileResult,
+  //   status: profileStatus,
+  //   loading: profileLoading,
+  //   error: profileError,
+  //   processInput: normalizeHandle,
+  //   storageKey: 'zlyzer-profile-analysis-history',
+  //   onSuccess: () => {
+  //     toast.success('Profile analysis completed successfully!');
+  //   },
+  //   onError: (error) => {
+  //     toast.error(`Analysis failed: ${error}`);
+  //   },
+  // });
 
   // Show loading skeleton while auth is being checked
   if (!authReady) {
@@ -141,7 +141,7 @@ export default function VideoAnalysis() {
         </section>
 
         {/* Profile Analysis Section */}
-        <section className="rounded-3xl border border-white/15 bg-white/5 p-6 shadow-[0_20px_60px_rgba(19,46,83,0.45)]">
+        {/* <section className="rounded-3xl border border-white/15 bg-white/5 p-6 shadow-[0_20px_60px_rgba(19,46,83,0.45)]">
           <h2 className="text-2xl font-bold text-white">Analyze a TikTok Profile</h2>
           <p className="mt-2 text-sm text-white/70">
             Enter a profile handle (e.g. <span className="font-mono">@creator</span>). Zlyzer summarizes
@@ -187,7 +187,7 @@ export default function VideoAnalysis() {
               currentStatus={profileStatus}
             />
           )}
-        </section>
+        </section> */}
       </div>
     </main>
   );

@@ -6,6 +6,8 @@ import { formatDate, buildProfileLabel, buildProfileLink } from '../utils/format
 import { sanitizeText } from '../utils/validation';
 import { STATUS_STYLES, SKELETON_LOADING_ROWS } from '../constants/analysis';
 import { exportAsJSON, exportAsText, copyToClipboard } from '../utils/export';
+import { useToast } from './Toast';
+import { exportVideoAnalysisReport, type ReportExportStatus } from './VideoAnalysisReport';
 
 type AnalysisType = AnalysisRequest | ProfileAnalysisRequest;
 
@@ -16,6 +18,7 @@ interface AnalysisResultCardProps {
   loading?: boolean;
 }
 
+/* ---------- ReadableText (existing, kept) ---------- */
 /**
  * Heuristic formatter to improve readability of plain analysis text.
  * - Splits into lines
@@ -67,6 +70,112 @@ function ReadableText({ text }: { text: string }) {
   );
 }
 
+/* ---------- Section Parsing & Rendering Helpers (NEW) ---------- */
+
+type ParsedSection = {
+  id: string;
+  title: string;
+  lines: string[];
+};
+
+const SECTION_ALIASES: Record<string, string[]> = {
+  'Executive Summary': ['executive summary', 'summary', 'overview'],
+  'Key Insights': ['key insights', 'insights', 'findings', 'highlights'],
+  'Recommendations': ['recommendations', 'next steps', 'suggestions', 'improvements'],
+  'Scenes / Timeline': ['scene breakdown', 'scenes', 'timeline', 'chapters'],
+  'Audience & Engagement': ['audience', 'engagement', 'retention'],
+  'Risks / Limitations': ['risks', 'limitations', 'constraints', 'issues'],
+  'Action Items': ['action items', 'actions', 'todo', 'to-do'],
+  Transcript: ['transcript', 'full transcript'],
+};
+
+const HEADING_MATCHER = new RegExp(
+  `^\\s*(?:\\d+\\.|[-*•]|—)?\\s*(${Object.values(SECTION_ALIASES)
+    .flat()
+    .map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')})\\b[\\s:–—-]*`,
+  'i'
+);
+
+function canonicalTitle(raw: string): string {
+  const lower = raw.toLowerCase();
+  for (const [canon, aliases] of Object.entries(SECTION_ALIASES)) {
+    if (aliases.some(a => lower.startsWith(a))) return canon;
+  }
+  return raw.replace(/^\w/, c => c.toUpperCase());
+}
+
+function parseAnalysisSections(text: string): ParsedSection[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  const sections: ParsedSection[] = [];
+  let currentTitle = 'Executive Summary';
+  let current: string[] = [];
+
+  const pushCurrent = () => {
+    if (!current.length) return;
+    const id = currentTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    sections.push({ id, title: currentTitle, lines: current.slice() });
+    current = [];
+  };
+
+  for (const line of lines) {
+    const m = line.match(HEADING_MATCHER);
+    if (m) {
+      pushCurrent();
+      currentTitle = canonicalTitle(m[1]);
+    } else {
+      current.push(line);
+    }
+  }
+  pushCurrent();
+
+  // If only one unnamed bucket, treat as "no sections" and fallback.
+  if (sections.length === 1 && sections[0].title === 'Executive Summary') return [];
+
+  // Merge duplicate titles
+  const merged: Record<string, ParsedSection> = {};
+  for (const s of sections) {
+    const key = s.title;
+    if (!merged[key]) merged[key] = { ...s };
+    else merged[key].lines.push(...s.lines);
+  }
+  return Object.values(merged);
+}
+
+function SectionCard({ title, children, id }: { title: string; children: React.ReactNode; id: string }) {
+  return (
+    <section id={id} className="rounded-2xl border border-white/10 bg-white/[.04] p-4 sm:p-5">
+      <div className="mb-2 flex items-center justify-between">
+        <h4 className="text-sm font-semibold tracking-wide text-white/90 uppercase">{title}</h4>
+        <a href={`#${id}`} className="text-xs text-white/40 hover:text-white/60">#</a>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TocChips({ sections }: { sections: ParsedSection[] }) {
+  if (!sections.length) return null;
+  return (
+    <nav className="mb-4 flex flex-wrap gap-2">
+      {sections.map(s => (
+        <a
+          key={s.id}
+          href={`#${s.id}`}
+          className="inline-flex items-center rounded-full border border-white/10 bg-white/[.06] px-3 py-1 text-[11px] font-medium text-white/80 hover:bg-white/10"
+        >
+          {s.title}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+/* ---------- Meta Item ---------- */
 function MetaItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -76,6 +185,8 @@ function MetaItem({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
+/* ============================ Main Component ============================ */
+
 export default function AnalysisResultCard({
   analysis,
   variant,
@@ -84,12 +195,14 @@ export default function AnalysisResultCard({
 }: AnalysisResultCardProps) {
   const [copied, setCopied] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportingReport, setExportingReport] = useState(false);
   const [expanded, setExpanded] = useState(false); // expand/collapse long text
   const [readable, setReadable] = useState(true); // toggle Raw vs Readable view
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const menuBtnId = useId();
   const status = (typeof analysis.status === 'string' ? analysis.status.toUpperCase() : analysis.status) as keyof typeof STATUS_STYLES;
   const statusStyle = STATUS_STYLES[status] || STATUS_STYLES.DEFAULT;
+  const toast = useToast();
 
   // Close export menu on outside click / ESC
   useEffect(() => {
@@ -174,6 +287,25 @@ export default function AnalysisResultCard({
     setShowExportMenu(false);
   };
 
+  const handleExportReport = useCallback(async () => {
+    if (variant !== 'video' || !hasResult || loading) return;
+    setExportingReport(true);
+    try {
+      const status: ReportExportStatus = exportVideoAnalysisReport(analysis as AnalysisRequest);
+      if (status === 'anchor') {
+        toast.info('Report download opened. If you do not see it, enable pop-ups for this site.');
+      } else {
+        toast.success('Report opened in a new tab. Use your browser to save it as PDF.');
+      }
+    } catch (error) {
+      console.error('Report export failed:', error);
+      toast.error("We couldn't build the report. Please try again.");
+    } finally {
+      setExportingReport(false);
+      setShowExportMenu(false);
+    }
+  }, [analysis, variant, hasResult, loading, toast]);
+
   // Short preview (first ~400 chars or until newline) for quick scan
   const preview = useMemo(() => {
     if (!summaryText) return '';
@@ -250,6 +382,16 @@ export default function AnalysisResultCard({
                 aria-labelledby={menuBtnId}
                 className="absolute right-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-lg border border-white/10 bg-[#132e53] shadow-xl"
               >
+                {variant === 'video' && (
+                  <button
+                    role="menuitem"
+                    onClick={handleExportReport}
+                    className="block w-full px-4 py-2 text-left text-xs text-white hover:bg-white/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={!hasResult || loading || exportingReport}
+                  >
+                    {exportingReport ? '⏳ Preparing Report…' : '📑 Export PDF Report'}
+                  </button>
+                )}
                 <button
                   role="menuitem"
                   onClick={handleExportText}
@@ -328,67 +470,109 @@ export default function AnalysisResultCard({
           >
             {failureMessage}
           </div>
-        ) : (
+        ) : hasResult && summaryText ? (
           <div className="mt-4">
             {/* Quick Summary / Expand */}
-            {hasResult && summaryText && (
-              <>
-                {!expanded && (
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                    <p className="text-sm leading-relaxed text-white/90">
-                      {sanitizeText(preview)}
-                    </p>
-                    {summaryText.length > preview.length && (
-                      <button
-                        onClick={() => setExpanded(true)}
-                        className="mt-2 text-xs text-[#2ce695] hover:text-[#7affd0] underline underline-offset-4"
-                        aria-expanded={expanded}
-                        aria-controls="analysis-full"
-                      >
-                        Read full analysis
-                      </button>
-                    )}
-                  </div>
+            {!expanded && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-sm leading-relaxed text-white/90">
+                  {sanitizeText(preview)}
+                </p>
+                {summaryText.length > preview.length && (
+                  <button
+                    onClick={() => setExpanded(true)}
+                    className="mt-2 text-xs text-[#2ce695] hover:text-[#7affd0] underline underline-offset-4"
+                    aria-expanded={expanded}
+                    aria-controls="analysis-full"
+                  >
+                    Read full analysis
+                  </button>
                 )}
-
-                {/* Full Body */}
-                {expanded && (
-                  <div id="analysis-full" role="region" aria-label="Full analysis">
-                    {readable ? (
-                      <ReadableText text={summaryText} />
-                    ) : (
-                      <pre className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
-                        {sanitizeText(summaryText)}
-                      </pre>
-                    )}
-                    <button
-                      onClick={() => setExpanded(false)}
-                      className="mt-3 text-xs text-[#2ce695] hover:text-[#7affd0] underline underline-offset-4"
-                    >
-                      Show less
-                    </button>
-                  </div>
-                )}
-
-                {/* If analysis is short, just show it directly */}
-                {!expanded && summaryText.length <= preview.length && (
-                  <div role="region" aria-label="Analysis result">
-                    {readable ? (
-                      <ReadableText text={summaryText} />
-                    ) : (
-                      <pre className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
-                        {sanitizeText(summaryText)}
-                      </pre>
-                    )}
-                  </div>
-                )}
-              </>
+              </div>
             )}
 
-            {!hasResult && !loading && !failureMessage && (
-              <p className="text-sm text-white/70">No analysis available yet.</p>
+            {/* Full Body */}
+            {expanded && (
+              <div id="analysis-full" role="region" aria-label="Full analysis">
+                {(() => {
+                  // Use sections if we can detect them; otherwise fallback
+                  const sections = parseAnalysisSections(summaryText);
+                  if (!sections.length) {
+                    return readable ? (
+                      <ReadableText text={summaryText} />
+                    ) : (
+                      <pre className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
+                        {sanitizeText(summaryText)}
+                      </pre>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <TocChips sections={sections} />
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {sections.map((s) => (
+                          <SectionCard key={s.id} id={s.id} title={s.title}>
+                            {readable ? (
+                              <ReadableText text={s.lines.join('\n')} />
+                            ) : (
+                              <pre className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
+                                {sanitizeText(s.lines.join('\n'))}
+                              </pre>
+                            )}
+                          </SectionCard>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+                <button
+                  onClick={() => setExpanded(false)}
+                  className="mt-4 text-xs text-[#2ce695] hover:text-[#7affd0] underline underline-offset-4"
+                >
+                  Show less
+                </button>
+              </div>
+            )}
+
+            {/* If analysis is short, just show it directly */}
+            {!expanded && summaryText.length <= preview.length && (
+              <div role="region" aria-label="Analysis result">
+                {(() => {
+                  const sections = parseAnalysisSections(summaryText);
+                  if (!sections.length) {
+                    return readable ? (
+                      <ReadableText text={summaryText} />
+                    ) : (
+                      <pre className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
+                        {sanitizeText(summaryText)}
+                      </pre>
+                    );
+                  }
+                  return (
+                    <>
+                      <TocChips sections={sections} />
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {sections.map((s) => (
+                          <SectionCard key={s.id} id={s.id} title={s.title}>
+                            {readable ? (
+                              <ReadableText text={s.lines.join('\n')} />
+                            ) : (
+                              <pre className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">
+                                {sanitizeText(s.lines.join('\n'))}
+                              </pre>
+                            )}
+                          </SectionCard>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
             )}
           </div>
+        ) : (
+          <p className="mt-4 text-sm text-white/70">No analysis available yet.</p>
         )}
       </div>
     </section>
