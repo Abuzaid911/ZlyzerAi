@@ -67,7 +67,7 @@ export default function HeroZlyzer() {
                   id="videoUrl"
                   type="url"
                   required
-                  placeholder="Paste TikTok video or @username URL"
+                  placeholder="Paste TikTok video URL"
                   className="flex-1 rounded-xl bg-white/5 border border-white/15 px-4 py-3.5 text-white placeholder-white/40 outline-none focus:border-[#2ce695]/60"
                 />
                 <button

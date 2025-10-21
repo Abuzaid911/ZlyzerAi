@@ -55,7 +55,7 @@ const PLANS: Plan[] = [
     name: "Enterprise",
     description:
       "Multi-client workspaces, white-label exports, and integrations to automate reporting.",
-    price: { monthly: 199, yearly: 1990 }, // save 2 months on yearly
+    price: { monthly: 120, yearly: 1000 }, // save 2 months on yearly
     cta: "Talk to sales",
     ctaHref: "mailto:hello@zlyzer.com?subject=Zlyzer%20Agency%20Plan",
     ctaExternal: true,
@@ -238,12 +238,6 @@ function PlanCard({ plan, billing }: { plan: Plan; billing: BillingCycle }) {
             </>
           )}
         </div>
-
-        {secondary && (
-          <p className="mt-1 text-xs text-white/60">
-            Equivalent to {formatMoney(secondary)} billed monthly
-          </p>
-        )}
 
         <CTAButton href={plan.ctaHref} highlight={plan.highlight}>
           {plan.cta}
