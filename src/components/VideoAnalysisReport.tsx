@@ -49,6 +49,34 @@ type IdentityBreakdown = { tone?: string; intent?: string; messagingStyle?: stri
 type MetricsBreakdown = { engagement?: string; quality?: string; viral?: string };
 
 /**
+ * Checks if the analysis result has enough structured content for the fixed template
+ */
+function hasStructuredContent(
+  identity: IdentityBreakdown,
+  metrics: MetricsBreakdown,
+  keyInsights: string[],
+  audienceInsights: string[],
+  recommendations: string[]
+): boolean {
+  const hasMetrics =
+    (metrics.engagement && metrics.engagement !== '—') ||
+    (metrics.quality && metrics.quality !== '—') ||
+    (metrics.viral && metrics.viral !== '—');
+
+  const hasIdentity =
+    (identity.tone && identity.tone !== 'Not identified') ||
+    (identity.intent && identity.intent !== 'Not identified') ||
+    (identity.messagingStyle && identity.messagingStyle !== 'Not identified');
+
+  const hasInsights = keyInsights.length > 0 || audienceInsights.length > 0;
+  const hasRecommendations = recommendations.length > 0;
+
+  // Require at least 2 of 4 structured sections to use the structured layout
+  const structuredSections = [hasMetrics, hasIdentity, hasInsights, hasRecommendations].filter(Boolean).length;
+  return structuredSections >= 2;
+}
+
+/**
  * Public API - Exports the analysis as a premium PDF report
  */
 export function exportVideoAnalysisReport(analysis: AnalysisRequest): ReportExportStatus {
@@ -345,6 +373,21 @@ interface ReportData {
 }
 
 function buildPremiumReport(data: ReportData): string {
+  // Check if we have enough structured content for the fixed template
+  // If not, use the flexible plain text layout
+  const useStructuredLayout = hasStructuredContent(
+    data.identity,
+    data.metrics,
+    data.keyInsights,
+    data.audienceInsights,
+    data.recommendations
+  );
+
+  if (!useStructuredLayout) {
+    return buildPlainTextReport(data);
+  }
+
+  // Continue with structured layout below
   const dateStr = formatDate(data.completedAt);
   const logoUrl = new URL('/logo.svg', window.location.origin).toString();
   const year = new Date().getFullYear();
@@ -1001,4 +1044,397 @@ function buildPremiumReport(data: ReportData): string {
     ${recommendationsPage}
   </body>
 </html>`;
+}
+
+/**
+ * Builds a clean, readable report for plain text analysis output
+ * Uses dynamic pages based on content length
+ */
+function buildPlainTextReport(data: ReportData): string {
+  const dateStr = formatDate(data.completedAt);
+  const logoUrl = new URL('/logo.svg', window.location.origin).toString();
+  const year = new Date().getFullYear();
+
+  // Convert raw analysis to formatted HTML with paragraph breaks
+  const formattedAnalysis = formatAnalysisText(data.rawAnalysis);
+
+  const styles = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+    
+    :root {
+      color-scheme: dark;
+      --navy: ${BRAND.navy};
+      --midnight: ${BRAND.midnight};
+      --green: ${BRAND.green};
+      --green-light: ${BRAND.greenLight};
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--midnight);
+      color: #e6edf6;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 48px 56px;
+      position: relative;
+      page-break-after: always;
+      background: linear-gradient(165deg, var(--navy) 0%, var(--midnight) 100%);
+    }
+    
+    .page:last-child {
+      page-break-after: auto;
+    }
+    
+    h1 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: #ffffff;
+    }
+    
+    h2 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 16px;
+    }
+    
+    h3 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      margin: 20px 0 12px 0;
+    }
+    
+    p {
+      color: #c9d7ea;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    
+    a {
+      color: var(--green);
+      text-decoration: none;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 48px;
+    }
+    
+    .logo {
+      width: 120px;
+      height: auto;
+    }
+    
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      padding: 8px 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 100px;
+    }
+    
+    .title-section {
+      margin-bottom: 40px;
+    }
+    
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+    
+    .subtitle {
+      font-size: 18px;
+      color: rgba(255,255,255,0.7);
+      margin-top: 8px;
+      max-width: 500px;
+    }
+    
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 32px;
+      max-width: 600px;
+    }
+    
+    .meta-item {
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+    }
+    
+    .meta-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 6px;
+    }
+    
+    .meta-value {
+      font-size: 14px;
+      color: #ffffff;
+      word-break: break-all;
+    }
+    
+    .analysis-content {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 32px;
+    }
+    
+    .analysis-content p {
+      font-size: 15px;
+      line-height: 1.8;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 16px;
+    }
+    
+    .analysis-content p:last-child {
+      margin-bottom: 0;
+    }
+    
+    .analysis-content ul,
+    .analysis-content ol {
+      margin: 16px 0;
+      padding-left: 24px;
+      color: rgba(255,255,255,0.85);
+    }
+    
+    .analysis-content li {
+      margin-bottom: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    .analysis-content strong {
+      color: var(--green);
+      font-weight: 600;
+    }
+    
+    .footer {
+      position: absolute;
+      bottom: 40px;
+      left: 56px;
+      right: 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    
+    .footer-brand {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    
+    .footer-text {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+    }
+    
+    .confidential {
+      margin-top: 24px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      line-height: 1.6;
+    }
+    
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      
+      .page {
+        margin: 0;
+        box-shadow: none;
+      }
+    }
+  `;
+
+  // Cover page
+  const coverPage = `
+    <section class="page">
+      <div class="header">
+        <img class="logo" src="${logoUrl}" alt="Zlyzer" />
+        <span class="badge">Analysis Report</span>
+      </div>
+      
+      <div class="title-section" style="margin-top: 80px;">
+        <div class="eyebrow">Video Intelligence Report</div>
+        <h1>${escapeHtml(data.videoTitle)}</h1>
+        <p class="subtitle">AI-powered analysis of video content.</p>
+      </div>
+      
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="meta-label">Creator</div>
+          <div class="meta-value">${escapeHtml(data.creatorName)}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Analysis Date</div>
+          <div class="meta-value">${escapeHtml(dateStr)}</div>
+        </div>
+        <div class="meta-item" style="grid-column: span 2;">
+          <div class="meta-label">Video URL</div>
+          <div class="meta-value"><a href="${escapeHtml(data.videoUrl)}" target="_blank">${escapeHtml(data.videoUrl)}</a></div>
+        </div>
+        ${data.processingTime ? `
+        <div class="meta-item">
+          <div class="meta-label">Processing Time</div>
+          <div class="meta-value">${data.processingTime}s</div>
+        </div>
+        ` : ''}
+      </div>
+      
+      <div class="footer">
+        <span class="footer-brand">Zlyzer</span>
+        <span class="footer-text">AI-Powered Video Intelligence</span>
+      </div>
+    </section>
+  `;
+
+  // Analysis content page(s) - content flows naturally
+  const analysisPage = `
+    <section class="page" style="min-height: auto; page-break-inside: auto;">
+      <div class="header">
+        <img class="logo" src="${logoUrl}" alt="Zlyzer" />
+        <span class="badge">${escapeHtml(dateStr)}</span>
+      </div>
+      
+      <h2>Analysis Results</h2>
+      <div class="analysis-content">
+        ${formattedAnalysis}
+      </div>
+      
+      <div class="confidential" style="margin-top: 40px;">
+        <strong>Confidentiality Notice:</strong> This report contains analysis generated by Zlyzer's AI engine. 
+        The insights are based on publicly available content and should be used for informational purposes only.
+      </div>
+      
+      <div class="footer" style="position: relative; margin-top: 40px;">
+        <span class="footer-brand">Zlyzer</span>
+        <span class="footer-text">© ${year} Zlyzer. All rights reserved.</span>
+      </div>
+    </section>
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zlyzer Video Analysis Report - ${escapeHtml(data.videoTitle)}</title>
+    <style>${styles}</style>
+    <script>
+      addEventListener('load', () => {
+        setTimeout(() => {
+          try { 
+            window.focus(); 
+            window.print(); 
+          } catch (e) {
+            console.log('Print dialog could not be opened automatically');
+          }
+        }, 500);
+      });
+    </script>
+  </head>
+  <body>
+    ${coverPage}
+    ${analysisPage}
+  </body>
+</html>`;
+}
+
+/**
+ * Formats raw analysis text to HTML with proper paragraph breaks and basic markdown-like formatting
+ */
+function formatAnalysisText(text: string): string {
+  // Split into paragraphs (double newlines or more)
+  const paragraphs = text
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  return paragraphs.map(paragraph => {
+    // Check if it's a heading-like line (starts with #)
+    if (/^#{1,3}\s+/.test(paragraph)) {
+      const headingText = paragraph.replace(/^#{1,3}\s+/, '');
+      return `<h3>${escapeHtml(headingText)}</h3>`;
+    }
+
+    // Check if it's a list (lines starting with - or * or numbers)
+    const lines = paragraph.split('\n').map(l => l.trim()).filter(Boolean);
+    const isBulletList = lines.every(l => /^[-*•]\s+/.test(l));
+    const isNumberedList = lines.every(l => /^\d+[.)]\s+/.test(l));
+
+    if (isBulletList) {
+      const items = lines.map(l => `<li>${escapeHtml(l.replace(/^[-*•]\s+/, ''))}</li>`).join('');
+      return `<ul>${items}</ul>`;
+    }
+
+    if (isNumberedList) {
+      const items = lines.map(l => `<li>${escapeHtml(l.replace(/^\d+[.)]\s+/, ''))}</li>`).join('');
+      return `<ol>${items}</ol>`;
+    }
+
+    // Regular paragraph - apply inline formatting
+    let html = escapeHtml(paragraph);
+
+    // Bold: **text** or __text__
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+    // Handle single newlines as line breaks within a paragraph
+    html = html.replace(/\n/g, '<br />');
+
+    return `<p>${html}</p>`;
+  }).join('\n');
 }

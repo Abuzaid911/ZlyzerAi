@@ -63,11 +63,17 @@ export default function Navbar() {
   }, [isSignedIn]);
 
   // Close mobile drawer & dropdown on route change
+  // Note: We use refs to the close functions to avoid re-running this effect on every render
+  const desktopCloseRef = useRef(desktopDropdown.close);
+  const mobileCloseRef = useRef(mobileDropdown.close);
+  desktopCloseRef.current = desktopDropdown.close;
+  mobileCloseRef.current = mobileDropdown.close;
+
   useEffect(() => {
     setMobileNavOpen(false);
-    desktopDropdown.close();
-    mobileDropdown.close();
-  }, [location.pathname, location.search, location.hash, desktopDropdown, mobileDropdown]);
+    desktopCloseRef.current();
+    mobileCloseRef.current();
+  }, [location.pathname, location.search, location.hash]);
 
   // Scroll shadow
   useEffect(() => {
