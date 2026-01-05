@@ -1,122 +1,30 @@
 // components/Navbar.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
-import { Link, useLocation } from "react-router-dom";
-import clsx from "clsx";
-import { supabase } from "../lib/supabaseClient";
-import { useAuthBootstrap } from "../hooks/useAuthBootstrap";
-import { useAuthSession } from "../hooks/useAuthSession";
-import { useToast } from "./Toast";
-import { buildRedirectPath, clearPostAuthRedirect, savePostAuthRedirect } from "../utils/authRedirect";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import clsx from 'clsx';
+import { supabase } from '../lib/supabaseClient';
+import { useAuthBootstrap } from '../hooks/useAuthBootstrap';
+import { useAuthSession } from '../hooks/useAuthSession';
+import { useDropdown } from '../hooks/useDropdown';
+import { useToast } from './Toast';
+import { buildRedirectPath, clearPostAuthRedirect, savePostAuthRedirect } from '../utils/authRedirect';
+import { UserDropdown } from './navbar/UserDropdown';
+import { MobileNav } from './navbar/MobileNav';
 
 const NAV_LINKS = [
-  { label: "Overview", href: "#hero" },
-  { label: "How it works", href: "#step-flow" },
-  { label: "FAQ", href: "#faq" },
+  { label: 'Overview', href: '#hero' },
+  { label: 'How it works', href: '#step-flow' },
+  { label: 'FAQ', href: '#faq' },
 ];
 
-// ✱ helper: get hash ('' if none)
-const getHash = (path: string) => (path.includes("#") ? path.slice(path.indexOf("#")) : "");
-
-type DropdownItem = HTMLAnchorElement | HTMLButtonElement | null;
-
-const useDropdown = () => {
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const itemsRef = useRef<DropdownItem[]>([]);
-
-  const close = useCallback(() => {
-    setOpen(false);
-  }, []);
-
-  const toggle = useCallback(() => {
-    setOpen((prev) => !prev);
-  }, []);
-
-  const registerItem = useCallback(
-    (index: number) => (el: DropdownItem) => {
-      itemsRef.current[index] = el;
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (!open) {
-      itemsRef.current = [];
-      setActiveIndex(0);
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      const container = containerRef.current;
-      const trigger = triggerRef.current;
-      if (!container || !trigger) return;
-      if (!container.contains(target) && !trigger.contains(target)) {
-        close();
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        close();
-        triggerRef.current?.focus();
-        return;
-      }
-
-      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-        return;
-      }
-
-      event.preventDefault();
-
-      const totalItems = itemsRef.current.length;
-      if (!totalItems) return;
-
-      if (event.key === "Home") {
-        setActiveIndex(0);
-      } else if (event.key === "End") {
-        setActiveIndex(totalItems - 1);
-      } else if (event.key === "ArrowDown") {
-        setActiveIndex((idx) => Math.min(idx + 1, totalItems - 1));
-      } else if (event.key === "ArrowUp") {
-        setActiveIndex((idx) => Math.max(idx - 1, 0));
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, close]);
-
-  useEffect(() => {
-    if (!open) return;
-    const item = itemsRef.current[activeIndex];
-    item?.focus();
-  }, [activeIndex, open]);
-
-  return {
-    open,
-    toggle,
-    close,
-    setOpen,
-    setActiveIndex,
-    containerRef,
-    triggerRef,
-    registerItem,
-  };
-};
+// Helper: get hash ('' if none)
+const getHash = (path: string) => (path.includes('#') ? path.slice(path.indexOf('#')) : '');
 
 export default function Navbar() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const reduceMotion = useMemo(
-    () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+    () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
     []
   );
 
@@ -125,22 +33,6 @@ export default function Navbar() {
   const mobileDropdown = useDropdown();
   const desktopDropdownMenuId = useId();
   const mobileDropdownMenuId = useId();
-  const {
-    open: desktopDropdownOpen,
-    toggle: toggleDesktopDropdown,
-    close: closeDesktopDropdown,
-    containerRef: desktopDropdownContainerRef,
-    triggerRef: desktopDropdownTriggerRef,
-    registerItem: registerDesktopDropdownItem,
-  } = desktopDropdown;
-  const {
-    open: mobileDropdownOpen,
-    toggle: toggleMobileDropdown,
-    close: closeMobileDropdown,
-    containerRef: mobileDropdownContainerRef,
-    triggerRef: mobileDropdownTriggerRef,
-    registerItem: registerMobileDropdownItem,
-  } = mobileDropdown;
   const toast = useToast();
   const bootstrapErrorRef = useRef<string | null>(null);
 
@@ -164,9 +56,7 @@ export default function Navbar() {
   // Clean up OAuth hash after authentication
   useEffect(() => {
     const hash = window.location.hash;
-    // If user is authenticated and there's an OAuth hash, clean it up
     if (isSignedIn && hash && hash.includes('access_token')) {
-      // Remove the hash from the URL without triggering a page reload
       const urlWithoutHash = window.location.pathname + window.location.search;
       window.history.replaceState(null, '', urlWithoutHash);
     }
@@ -175,36 +65,26 @@ export default function Navbar() {
   // Close mobile drawer & dropdown on route change
   useEffect(() => {
     setMobileNavOpen(false);
-    closeDesktopDropdown();
-    closeMobileDropdown();
-  }, [
-    location.pathname,
-    location.search,
-    location.hash,
-    closeDesktopDropdown,
-    closeMobileDropdown,
-  ]);
+    desktopDropdown.close();
+    mobileDropdown.close();
+  }, [location.pathname, location.search, location.hash, desktopDropdown, mobileDropdown]);
 
   // Scroll shadow
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 6);
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   // Sign in with Google using PKCE flow
   const handleSignIn = async () => {
     try {
-      // Store the current path for redirect after auth
       savePostAuthRedirect(buildRedirectPath(location));
-      
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { 
-          // Always use explicit callback URL, never window.location.href
+        provider: 'google',
+        options: {
           redirectTo: `${window.location.origin}/video-analysis`,
-          // Request PKCE flow for better security
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -213,102 +93,92 @@ export default function Navbar() {
       });
       if (error) throw error;
     } catch (error) {
-      console.error("Error signing in:", error);
+      console.error('Error signing in:', error);
     }
   };
 
   // Sign out with reliable cleanup
   const handleSignOut = async () => {
     try {
-      closeDesktopDropdown();
-      closeMobileDropdown();
+      desktopDropdown.close();
+      mobileDropdown.close();
       setMobileNavOpen(false);
       localStorage.clear();
       console.log('🔓 Signing out...');
-      
+
       // Clear all session-related storage BEFORE sign out
       Object.keys(sessionStorage).forEach((key) => {
-        if (
-          key.startsWith("signed_up_") || 
-          key.startsWith("auth_")
-        ) {
+        if (key.startsWith('signed_up_') || key.startsWith('auth_')) {
           sessionStorage.removeItem(key);
         }
       });
       clearPostAuthRedirect();
       // Clear any analysis history from localStorage
       Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith("zlyzer-")) {
+        if (key.startsWith('zlyzer-')) {
           localStorage.removeItem(key);
         }
       });
-      window.location.reload(); // Ensure all state is cleared
-      // Sign out from Supabase (this triggers onAuthStateChange)
+      window.location.reload();
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("Supabase sign out error:", error);
+        console.error('Supabase sign out error:', error);
         throw error;
       }
-      // Force immediate session recheck to ensure UI updates
       await supabase.auth.getSession();
-      
       console.log('✅ Signed out successfully');
-      
-      // Optional: redirect to home page after sign out
-      // This ensures clean state even if listeners don't fire
       if (window.location.pathname !== '/') {
         window.location.href = '/';
       }
     } catch (error) {
-      console.error("Error signing out:", error);
-      
-      // Force a hard refresh to clear any stale state
+      console.error('Error signing out:', error);
       window.location.href = '/';
     }
   };
 
-  // ✱ Smooth scroll for in-page anchors with offset & reduced-motion
-  const onAnchorClick = (href: string) => (e: React.MouseEvent) => {
-    if (!href.startsWith("#")) return;
-    e.preventDefault();
-    const id = href.slice(1);
-    const el = document.getElementById(id);
-    if (el) {
-      const headerOffset = 88; // ~ h-14 + margins
-      const { top } = el.getBoundingClientRect();
-      const y = top + window.scrollY - headerOffset;
-      if (reduceMotion) window.scrollTo(0, y);
-      else window.scrollTo({ top: y, behavior: "smooth" });
-    }
-    setMobileNavOpen(false);
-  };
+  // Smooth scroll for in-page anchors with offset & reduced-motion
+  const onAnchorClick = useCallback(
+    (href: string) => (e: React.MouseEvent) => {
+      if (!href.startsWith('#')) return;
+      e.preventDefault();
+      const id = href.slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        const headerOffset = 88;
+        const { top } = el.getBoundingClientRect();
+        const y = top + window.scrollY - headerOffset;
+        if (reduceMotion) window.scrollTo(0, y);
+        else window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+      setMobileNavOpen(false);
+    },
+    [reduceMotion]
+  );
 
-  // ✱ If page loads with a hash, auto-offset scroll once content paints
+  // If page loads with a hash, auto-offset scroll once content paints
   useEffect(() => {
     const hash = getHash(window.location.href);
-    // Ignore OAuth callback hashes (access_token, refresh_token, etc.)
-    if (hash && !hash.includes("access_token") && !hash.includes("=")) {
+    if (hash && !hash.includes('access_token') && !hash.includes('=')) {
       try {
         const el = document.querySelector(hash) as HTMLElement | null;
         if (el) {
           requestAnimationFrame(() => {
             const headerOffset = 80;
             const { top } = el.getBoundingClientRect();
-            window.scrollTo({ top: top + window.scrollY - headerOffset, behavior: "auto" });
+            window.scrollTo({ top: top + window.scrollY - headerOffset, behavior: 'auto' });
           });
         }
       } catch {
-        // Invalid selector, ignore
-        console.debug("Invalid hash selector:", hash);
+        console.debug('Invalid hash selector:', hash);
       }
     }
   }, []);
 
-  // ✱ Active link computation
-  const activeHash = location.hash || "";
+  // Active link computation
+  const activeHash = location.hash || '';
   const activePath = location.pathname;
 
-  // ✱ avatar onError fallback
+  // Avatar onError fallback
   const [avatarError, setAvatarError] = useState(false);
 
   return (
@@ -318,9 +188,9 @@ export default function Navbar() {
         <nav
           aria-label="Primary"
           className={clsx(
-            "mt-4 flex items-center justify-between rounded-4xl px-4 sm:px-6 py-2",
-            "backdrop-blur-md border border-white/10 h-17",
-            scrolled && "ring-1 ring-black/10 shadow-[0_8px_24px_rgba(44,230,149,0.15)]"
+            'mt-4 flex items-center justify-between rounded-4xl px-4 sm:px-6 py-2',
+            'backdrop-blur-md border border-white/10 h-17',
+            scrolled && 'ring-1 ring-black/10 shadow-[0_8px_24px_rgba(44,230,149,0.15)]'
           )}
         >
           {/* Logo */}
@@ -338,15 +208,14 @@ export default function Navbar() {
           {/* Links */}
           <ul className="hidden md:flex items-center gap-8">
             {NAV_LINKS.map((link) => {
-              const isAnchor = link.href.startsWith("#");
-              const isActive =
-                (isAnchor && activeHash === link.href) || (!isAnchor && activePath === link.href);
+              const isAnchor = link.href.startsWith('#');
+              const isActive = (isAnchor && activeHash === link.href) || (!isAnchor && activePath === link.href);
               const base =
-                "text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent rounded relative transition-colors";
+                'text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent rounded relative transition-colors';
               const underline =
-                "after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-[#2ce695] after:transition-all after:duration-300";
-              const activeUnderline = "after:w-full";
-              const color = isActive ? "text-white" : "text-white/80 hover:text-white";
+                'after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-0 after:bg-[#2ce695] after:transition-all after:duration-300';
+              const activeUnderline = 'after:w-full';
+              const color = isActive ? 'text-white' : 'text-white/80 hover:text-white';
               if (isAnchor) {
                 return (
                   <li key={link.label}>
@@ -373,10 +242,8 @@ export default function Navbar() {
           {/* CTA + User Profile + Mobile controls */}
           <div className="flex items-center gap-3">
             {/* Don't show auth-dependent UI until ready */}
-            {!authReady && (
-              <div className="h-9 w-20 animate-pulse rounded-full bg-white/10" />
-            )}
-            
+            {!authReady && <div className="h-9 w-20 animate-pulse rounded-full bg-white/10" />}
+
             {/* Desktop Sign In */}
             {authReady && !user && (
               <button
@@ -405,7 +272,7 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* ✅ Mobile CTA (visible on phones) */}
+            {/* Mobile CTA (visible on phones) */}
             {authReady && !user && (
               <Link
                 to="/video-analysis"
@@ -415,81 +282,47 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* ✅ Mobile: avatar replaces hamburger when signed in */}
+            {/* Mobile: avatar replaces hamburger when signed in */}
             {authReady && user ? (
-              <div className="sm:hidden relative" ref={mobileDropdownContainerRef}>
+              <div className="sm:hidden relative" ref={mobileDropdown.containerRef}>
                 <button
                   type="button"
-                  ref={mobileDropdownTriggerRef}
+                  ref={mobileDropdown.triggerRef}
                   onClick={() => {
-                    toggleMobileDropdown();
-                    closeDesktopDropdown();
+                    mobileDropdown.toggle();
+                    desktopDropdown.close();
                     setMobileNavOpen(false);
                   }}
                   aria-haspopup="menu"
-                  aria-expanded={mobileDropdownOpen}
+                  aria-expanded={mobileDropdown.open}
                   aria-controls={mobileDropdownMenuId}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 hover:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60"
                 >
                   <img
                     src={
                       !avatarError
-                        ? user.user_metadata?.avatar_url ||
-                          user.user_metadata?.picture ||
-                          "/default-avatar.png"
-                        : "/default-avatar.png"
+                        ? user.user_metadata?.avatar_url || user.user_metadata?.picture || '/default-avatar.png'
+                        : '/default-avatar.png'
                     }
                     onError={() => setAvatarError(true)}
-                    alt={user.user_metadata?.full_name || user.email || "User"}
+                    alt={user.user_metadata?.full_name || user.email || 'User'}
                     className="h-8 w-8 rounded-full object-cover"
                     referrerPolicy="no-referrer"
                   />
                 </button>
 
-                {mobileDropdownOpen && (
-                  <div
-                    id={mobileDropdownMenuId}
-                    role="menu"
-                    aria-label="User menu"
-                    className="absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#132e53]/95 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,.35)] z-100 overflow-hidden"
-                  >
-                    <div className="px-4 py-3 border-b border-white/10">
-                      <p className="text-sm font-medium text-white">
-                        {user.user_metadata?.full_name || "User"}
-                      </p>
-                      <p className="text-xs text-white/60 truncate">{user.email}</p>
-                    </div>
-                    <div className="py-2">
-                      <Link
-                        to="/dashboard"
-                        role="menuitem"
-                        ref={registerMobileDropdownItem(0)}
-                        className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
-                        onClick={() => {
-                          closeMobileDropdown();
-                          setMobileNavOpen(false);
-                        }}
-                      >
-                        Dashboard
-                      </Link>
-                    </div>
-                    <div className="border-t border-white/10">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        ref={registerMobileDropdownItem(1)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closeMobileDropdown();
-                          setMobileNavOpen(false);
-                          handleSignOut();
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition focus:outline-none"
-                      >
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
+                {mobileDropdown.open && (
+                  <UserDropdown
+                    user={user}
+                    menuId={mobileDropdownMenuId}
+                    onClose={() => {
+                      mobileDropdown.close();
+                      setMobileNavOpen(false);
+                    }}
+                    onSignOut={handleSignOut}
+                    registerItem={mobileDropdown.registerItem}
+                    variant="mobile"
+                  />
                 )}
               </div>
             ) : (
@@ -508,24 +341,32 @@ export default function Navbar() {
                 aria-label="Toggle menu"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth={1.8}>
-                  {mobileNavOpen ? <path d="M6 6l12 12M18 6L6 18" /> : (<><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>)}
+                  {mobileNavOpen ? (
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  ) : (
+                    <>
+                      <path d="M4 7h16" />
+                      <path d="M4 12h16" />
+                      <path d="M4 17h16" />
+                    </>
+                  )}
                 </svg>
               </button>
             )}
 
             {/* Desktop user dropdown */}
             {authReady && user && (
-              <div className="hidden sm:block relative" ref={desktopDropdownContainerRef}>
+              <div className="hidden sm:block relative" ref={desktopDropdown.containerRef}>
                 <button
                   type="button"
-                  ref={desktopDropdownTriggerRef}
+                  ref={desktopDropdown.triggerRef}
                   onClick={() => {
-                    toggleDesktopDropdown();
-                    closeMobileDropdown();
+                    desktopDropdown.toggle();
+                    mobileDropdown.close();
                   }}
                   aria-haspopup="menu"
-                  aria-expanded={desktopDropdownOpen}
-                  aria-controls={desktopDropdownMenuId} // ✱
+                  aria-expanded={desktopDropdown.open}
+                  aria-controls={desktopDropdownMenuId}
                   className="
                     flex items-center gap-2 rounded-full border border-white/20
                     px-2 py-2 hover:border-white/40 transition-colors
@@ -535,23 +376,21 @@ export default function Navbar() {
                   <img
                     src={
                       !avatarError
-                        ? user.user_metadata?.avatar_url ||
-                          user.user_metadata?.picture ||
-                          "/default-avatar.png"
-                        : "/default-avatar.png"
+                        ? user.user_metadata?.avatar_url || user.user_metadata?.picture || '/default-avatar.png'
+                        : '/default-avatar.png'
                     }
-                    onError={() => setAvatarError(true)} // ✱
-                    alt={user.user_metadata?.full_name || user.email || "User"}
+                    onError={() => setAvatarError(true)}
+                    alt={user.user_metadata?.full_name || user.email || 'User'}
                     className="w-8 h-8 rounded-full object-cover ring-2 ring-[#2ce695]/30"
                     loading="lazy"
                     decoding="async"
                     referrerPolicy="no-referrer"
                   />
                   <span className="text-sm font-medium text-white/90 pr-2 max-w-[120px] truncate">
-                    {user.user_metadata?.full_name?.split(" ")[0] || user.email?.split("@")[0]}
+                    {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
                   </span>
                   <svg
-                    className={clsx("w-4 h-4 text-white/60 transition-transform", desktopDropdownOpen && "rotate-180")}
+                    className={clsx('w-4 h-4 text-white/60 transition-transform', desktopDropdown.open && 'rotate-180')}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -562,54 +401,18 @@ export default function Navbar() {
                 </button>
 
                 {/* Dropdown Menu (desktop) */}
-                {desktopDropdownOpen && (
-                  <div
-                    id={desktopDropdownMenuId}
-                    role="menu"
-                    aria-label="User menu"
-                    className="absolute right-0 mt-2 w-64 rounded-xl border border-white/10 bg-[#132e53]/95 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,.35)] z-50 overflow-hidden"
-                  >
-                    {/* User Info */}
-                    <div className="px-4 py-3 border-b border-white/10">
-                      <p className="text-sm font-medium text-white">
-                        {user.user_metadata?.full_name || "User"}
-                      </p>
-                      <p className="text-xs text-white/60 truncate">{user.email}</p>
-                    </div>
-
-                    {/* Menu Items */}
-                    <div className="py-2">
-                      <Link
-                        to="/dashboard"
-                        role="menuitem"
-                        ref={registerDesktopDropdownItem(0)}
-                        className="block px-4 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition focus:outline-none"
-                        onClick={() => {
-                          closeDesktopDropdown();
-                          closeMobileDropdown();
-                        }}
-                      >
-                        Dashboard
-                      </Link>
-                    </div>
-
-                    {/* Sign Out */}
-                    <div className="border-t border-white/10">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        ref={registerDesktopDropdownItem(1)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closeDesktopDropdown();
-                          handleSignOut();
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition focus:outline-none"
-                      >
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
+                {desktopDropdown.open && (
+                  <UserDropdown
+                    user={user}
+                    menuId={desktopDropdownMenuId}
+                    onClose={() => {
+                      desktopDropdown.close();
+                      mobileDropdown.close();
+                    }}
+                    onSignOut={handleSignOut}
+                    registerItem={desktopDropdown.registerItem}
+                    variant="desktop"
+                  />
                 )}
               </div>
             )}
@@ -618,131 +421,15 @@ export default function Navbar() {
       </div>
 
       {/* Mobile drawer */}
-      <div
-        id="mobile-nav"
-        className={clsx(
-          "md:hidden overflow-hidden transition-[max-height,opacity] duration-300",
-          mobileNavOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
-        )}
-      >
-        <div
-          className="
-            mx-4 mt-2 rounded-2xl border border-white/10 backdrop-blur-md
-            bg-[linear-gradient(90deg,#132e53cc_0%,#191e29cc_100%)]
-            shadow-[0_8px_24px_rgba(0,0,0,.25)]
-          "
-        >
-          <ul className="flex flex-col p-3">
-            {/* User Info for Mobile (drawer) */}
-            {user && (
-              <li className="mb-3 pb-3 border-b border-white/10">
-                <div className="flex items-center gap-3 px-3 py-2">
-                  <img
-                    src={
-                      user.user_metadata?.avatar_url ||
-                      user.user_metadata?.picture ||
-                      "/default-avatar.png"
-                    }
-                    alt={user.user_metadata?.full_name || user.email || "User"}
-                    className="w-10 h-10 rounded-full object-cover ring-2 ring-[#2ce695]/30"
-                    loading="lazy"
-                    decoding="async"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
-                      {user.user_metadata?.full_name || "User"}
-                    </p>
-                    <p className="text-xs text-white/60 truncate">{user.email}</p>
-                  </div>
-                </div>
-              </li>
-            )}
-
-            {NAV_LINKS.map((link) => (
-              <li key={link.label}>
-                {link.href.startsWith("#") ? (
-                  <a
-                    href={link.href}
-                    onClick={onAnchorClick(link.href)}
-                    className="
-                      block rounded-lg px-3 py-2
-                      text-sm font-medium text-white/80
-                      hover:bg-white/5 hover:text-white
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
-                      transition
-                    "
-                  >
-                    {link.label}
-                  </a>
-                ) : (
-                  <Link
-                    to={link.href}
-                    onClick={() => setMobileNavOpen(false)}
-                    className="
-                      block rounded-lg px-3 py-2
-                      text-sm font-medium text-white/80
-                      hover:bg-white/5 hover:text-white
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
-                      transition
-                    "
-                  >
-                    {link.label}
-                  </Link>
-                )}
-              </li>
-            ))}
-
-            {user ? (
-              <>
-                <li className="mt-2">
-                  <Link
-                    to="/dashboard"
-                    onClick={() => setMobileNavOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/5 hover:text-white transition"
-                  >
-                    Dashboard
-                  </Link>
-                </li>
-                <li className="mt-2 pt-2 border-t border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMobileNavOpen(false);
-                      handleSignOut();
-                    }}
-                    className="
-                      w-full text-left rounded-lg px-3 py-2
-                      text-sm font-medium text-red-400
-                      hover:bg-red-500/10
-                      transition
-                    "
-                  >
-                    Sign Out
-                  </button>
-                </li>
-              </>
-            ) : (
-              <li className="mt-2">
-                <button
-                  type="button"
-                  onClick={handleSignIn}
-                  className="
-                    w-full text-center rounded-full
-                    border border-white/20
-                    px-4 py-2 text-sm font-semibold
-                    text-white/90 hover:text-white hover:border-white/40
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ce695]/60
-                    transition
-                  "
-                >
-                  Sign In
-                </button>
-              </li>
-            )}
-          </ul>
-        </div>
-      </div>
+      <MobileNav
+        isOpen={mobileNavOpen}
+        user={user}
+        navLinks={NAV_LINKS}
+        onClose={() => setMobileNavOpen(false)}
+        onAnchorClick={onAnchorClick}
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
+      />
     </header>
   );
 }

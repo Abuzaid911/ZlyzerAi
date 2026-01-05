@@ -1,45 +1,60 @@
-// Formatting utilities
+// utils/formatters.ts
 
 /**
- * Format a date value for display
+ * Format a date for display in the UI
  */
-export function formatDate(value?: Date | string | null): string {
-  if (!value) return '—';
+export function formatDate(d?: Date | string): string {
+  if (!d) return '—';
   try {
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleString(undefined, {
+    const date = typeof d === 'string' ? new Date(d) : d;
+    return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
   } catch {
-    return String(value);
+    return String(d);
   }
 }
 
 /**
- * Build a display label for a TikTok profile
+ * Format a number with commas
  */
-export function buildProfileLabel(handleOrUrl: string | null | undefined): string {
-  if (!handleOrUrl) return 'Profile';
-  if (typeof handleOrUrl !== 'string') return 'Profile';
-  if (handleOrUrl.startsWith('@')) return handleOrUrl;
-  const match = handleOrUrl.match(/@([\w.-]+)/);
-  if (match?.[1]) return `@${match[1]}`;
-  const stripped = handleOrUrl.replace(/^https?:\/\//, '').replace(/^www\./, '');
-  return stripped || 'Profile';
+export function formatNumber(n: number): string {
+  return n.toLocaleString('en-US');
 }
 
 /**
- * Build a link URL for a TikTok profile
+ * Format bytes to human readable string
  */
-export function buildProfileLink(handleOrUrl: string | null | undefined): string {
-  if (!handleOrUrl) return '#';
-  if (typeof handleOrUrl !== 'string') return '#';
-  if (handleOrUrl.includes('://')) return handleOrUrl;
-  const normalized = handleOrUrl.startsWith('@') ? handleOrUrl.slice(1) : handleOrUrl;
-  return `https://www.tiktok.com/@${normalized}`;
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+/**
+ * Build a display label for a TikTok profile handle
+ */
+export function buildProfileLabel(handle: string | null | undefined): string {
+  if (!handle) return 'Unknown profile';
+  const normalized = handle.startsWith('@') ? handle : `@${handle}`;
+  return normalized;
+}
+
+/**
+ * Build a TikTok profile link from a handle
+ */
+export function buildProfileLink(handle: string | null | undefined): string {
+  if (!handle) return 'https://tiktok.com';
+  // If it's already a full URL, return it
+  if (handle.startsWith('http://') || handle.startsWith('https://')) {
+    return handle;
+  }
+  const normalized = handle.startsWith('@') ? handle.slice(1) : handle;
+  return `https://www.tiktok.com/@${normalized}`;
+}
